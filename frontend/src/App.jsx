@@ -7,6 +7,7 @@ import UserHome from './pages/UserHome';
 import ProfilePage from './pages/ProfilePage';
 import StoreProfilePage from './pages/StoreProfilePage';
 import StoreProductsPage from './pages/StoreProductsPage';
+import Favorites from './pages/Favorites';
 import { useState, useEffect } from 'react';
 
 function AppLayout({ children }) {
@@ -54,6 +55,9 @@ function AppLayout({ children }) {
             <div className="flex items-center gap-sm">
               {userName ? (
                 <div className="flex items-center gap-4">
+                  <Link to="/favorites" className="p-2 text-on-surface-variant hover:text-primary hover:bg-surface-container rounded-full transition-all hidden sm:block" title="Danh sách yêu thích">
+                    <span className="material-symbols-outlined">favorite</span>
+                  </Link>
                   <button className="p-2 text-on-surface-variant hover:bg-surface-container rounded-full transition-all hidden sm:block">
                     <span className="material-symbols-outlined">notifications</span>
                   </button>
@@ -123,6 +127,7 @@ function App() {
           <Route path="/register" element={<AuthPage />} />
           <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
           <Route path="/recommendations" element={<Recommendations />} />
+          <Route path="/favorites" element={<Favorites />} />
           <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
           <Route path="/store-profile" element={<ProtectedRoute><StoreProfilePage /></ProtectedRoute>} />
           <Route path="/store-products" element={<ProtectedRoute><StoreProductsPage /></ProtectedRoute>} />
