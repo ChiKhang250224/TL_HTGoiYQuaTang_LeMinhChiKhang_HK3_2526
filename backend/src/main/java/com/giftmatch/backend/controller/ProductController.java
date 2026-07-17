@@ -59,4 +59,14 @@ public class ProductController {
         productRepository.deleteById(id);
         return ResponseEntity.ok().build();
     }
+
+    @GetMapping("/search")
+    public ResponseEntity<List<Product>> searchProducts(
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) Long categoryId,
+            @RequestParam(required = false) java.math.BigDecimal minPrice,
+            @RequestParam(required = false) java.math.BigDecimal maxPrice
+    ) {
+        return ResponseEntity.ok(productRepository.searchProducts(keyword, categoryId, minPrice, maxPrice));
+    }
 }

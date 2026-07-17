@@ -8,6 +8,8 @@ import ProfilePage from './pages/ProfilePage';
 import StoreProfilePage from './pages/StoreProfilePage';
 import StoreProductsPage from './pages/StoreProductsPage';
 import Favorites from './pages/Favorites';
+import AddRecipientProfile from './pages/AddRecipientProfile';
+import History from './pages/History';
 import { useState, useEffect } from 'react';
 
 function AppLayout({ children }) {
@@ -49,6 +51,9 @@ function AppLayout({ children }) {
               </li>
               <li>
                 <Link className="text-on-surface-variant hover:text-primary-container transition-all font-body-md" to="/dashboard">Sổ tay</Link>
+              </li>
+              <li>
+                <Link className="text-on-surface-variant hover:text-primary-container transition-all font-body-md" to="/history">Lịch sử</Link>
               </li>
             </ul>
             {/* Trailing Action */}
@@ -128,6 +133,8 @@ function App() {
           <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
           <Route path="/recommendations" element={<Recommendations />} />
           <Route path="/favorites" element={<Favorites />} />
+          <Route path="/add-profile" element={<ProtectedRoute><AddRecipientProfile /></ProtectedRoute>} />
+          <Route path="/history" element={<ProtectedRoute><History /></ProtectedRoute>} />
           <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
           <Route path="/store-profile" element={<ProtectedRoute><StoreProfilePage /></ProtectedRoute>} />
           <Route path="/store-products" element={<ProtectedRoute><StoreProductsPage /></ProtectedRoute>} />
