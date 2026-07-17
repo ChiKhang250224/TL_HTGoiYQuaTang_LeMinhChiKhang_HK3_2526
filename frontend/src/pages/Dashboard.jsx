@@ -59,10 +59,10 @@ export default function Dashboard() {
         <h1 className="font-heading text-display-lg text-on-surface font-bold flex items-center gap-3">
           Sổ tay người nhận <span className="text-[40px]">📓</span>
         </h1>
-        <button className="bg-primary-container hover:bg-primary text-white px-6 py-3 rounded-xl font-label-md text-[16px] font-semibold transition-colors flex items-center gap-2 shadow-sm">
+        <Link to="/add-profile" className="bg-primary-container hover:bg-primary text-white px-6 py-3 rounded-xl font-label-md text-[16px] font-semibold transition-colors flex items-center gap-2 shadow-sm">
           <span className="material-symbols-outlined text-[20px]">add</span>
           Thêm người nhận
-        </button>
+        </Link>
       </div>
 
       {/* Grid Danh sách người nhận */}
