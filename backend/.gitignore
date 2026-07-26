@@ -31,3 +31,7 @@ build/
 
 ### VS Code ###
 .vscode/
+
+### Local configuration and database backups ###
+.env
+/giftmatch_db_before_ai_schema.sql

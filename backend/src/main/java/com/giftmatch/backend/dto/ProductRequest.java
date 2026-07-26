@@ -10,5 +10,6 @@ public class ProductRequest {
     private BigDecimal price;
     private String imageUrl;
     private String giftType;
+    private String aiGiftName;
     private Long categoryId;
 }

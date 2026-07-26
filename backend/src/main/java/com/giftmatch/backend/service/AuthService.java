@@ -4,7 +4,9 @@ import com.giftmatch.backend.dto.AuthRequest;
 import com.giftmatch.backend.dto.AuthResponse;
 import com.giftmatch.backend.dto.RegisterRequest;
 import com.giftmatch.backend.entity.Role;
+import com.giftmatch.backend.entity.StoreProfile;
 import com.giftmatch.backend.entity.User;
+import com.giftmatch.backend.repository.StoreProfileRepository;
 import com.giftmatch.backend.repository.UserRepository;
 import com.giftmatch.backend.security.JwtUtil;
 import com.giftmatch.backend.security.UserDetailsImpl;
@@ -13,6 +15,7 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.http.ResponseEntity;
 
@@ -28,7 +31,9 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
     private final AuthenticationManager authenticationManager;
+    private final StoreProfileRepository storeProfileRepository;
 
+    @Transactional
     public AuthResponse register(RegisterRequest request) {
         if(userRepository.existsByEmail(request.getEmail())) {
             throw new RuntimeException("Email is already taken!");
@@ -49,12 +54,21 @@ public class AuthService {
                 .build();
         
         userRepository.save(user);
+        if (userRole == Role.STORE) {
+            storeProfileRepository.save(StoreProfile.builder()
+                    .owner(user)
+                    .storeName(user.getFullName())
+                    .phone(user.getPhoneNumber())
+                    .status("PENDING")
+                    .build());
+        }
 
         var userDetails = new UserDetailsImpl(user);
         var jwtToken = jwtUtil.generateToken(userDetails);
 
         return AuthResponse.builder()
                 .token(jwtToken)
+                .userId(user.getUserId())
                 .email(user.getEmail())
                 .fullName(user.getFullName())
                 .role(user.getRole().name())
@@ -76,6 +90,7 @@ public class AuthService {
 
         return AuthResponse.builder()
                 .token(jwtToken)
+                .userId(user.getUserId())
                 .email(user.getEmail())
                 .fullName(user.getFullName())
                 .avatar(user.getAvatarUrl())
@@ -169,6 +184,7 @@ public class AuthService {
 
         return AuthResponse.builder()
                 .token(jwtToken)
+                .userId(user.getUserId())
                 .email(user.getEmail())
                 .fullName(user.getFullName())
                 .avatar(user.getAvatarUrl())

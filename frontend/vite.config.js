@@ -7,5 +7,8 @@ export default defineConfig({
   plugins: [react(), mkcert()],
   server: {
     https: true,
+    headers: {
+      'Cross-Origin-Opener-Policy': 'same-origin-allow-popups',
+    },
   }
 })

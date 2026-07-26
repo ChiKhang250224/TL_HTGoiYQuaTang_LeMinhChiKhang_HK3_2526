@@ -1,9 +1,148 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
+import api from '../utils/api';
+import { GIFT_NAME_LABELS, GIFT_TAXONOMY } from '../constants/giftTaxonomy';
 
 export default function StoreProductsPage() {
   const userName = localStorage.getItem('fullName') || 'Quản lý';
   const userAvatar = localStorage.getItem('avatar');
+
+  const [products, setProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  
+  // Modal State
+  const [showModal, setShowModal] = useState(false);
+  const [editId, setEditId] = useState(null);
+  const [formData, setFormData] = useState({
+    name: '',
+    price: '',
+    category: 'Mỹ phẩm',
+    description: '',
+    giftType: '',
+    aiGiftName: '',
+    img: ''
+  });
+  const [imageFile, setImageFile] = useState(null);
+  const [uploading, setUploading] = useState(false);
+
+  const fetchProducts = async () => {
+    try {
+      const res = await api.get('/products');
+      // For UI compatibility, map fields
+      const mapped = res.data.map(p => ({
+        id: p.productId, // Adjusting ID field
+        name: p.name,
+        price: p.price ? p.price + 'đ' : '0đ',
+        category: p.category ? p.category.name : 'Chưa phân loại',
+        categoryId: p.category ? p.category.categoryId : null,
+        description: p.description || '',
+        giftType: p.giftType || '',
+        aiGiftName: p.aiGiftName || '',
+        status: p.status === 'PENDING' ? 'Chờ duyệt' : (p.status === 'APPROVED' ? 'Đã duyệt' : 'Bị từ chối'),
+        statusBg: p.status === 'PENDING' ? 'bg-[#FEF3C7] text-[#D97706] border-[#FCD34D]' : (p.status === 'APPROVED' ? 'bg-tertiary-container/10 text-tertiary-container border-tertiary-container/20' : 'bg-error-container text-error border-error/20'),
+        aiCount: 0,
+        img: p.imageUrl || 'https://images.unsplash.com/photo-1549465220-1a8b9238cd48?q=80&w=200&auto=format&fit=crop'
+      }));
+      setProducts(mapped);
+    } catch (error) {
+      console.error("Error fetching products", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchProducts();
+  }, []);
+
+  const handleDelete = async (id) => {
+    if (window.confirm('Bạn có chắc chắn muốn xóa sản phẩm này?')) {
+      try {
+        await api.delete(`/products/${id}`);
+        setProducts(products.filter(p => p.id !== id));
+      } catch (error) {
+        console.error("Lỗi khi xóa", error);
+      }
+    }
+  };
+
+  const uploadToCloudinary = async (file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    try {
+      const res = await api.post('/upload/image', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data'
+        }
+      });
+      return res.data.url;
+    } catch (error) {
+      console.error("Upload error", error);
+      alert("Lỗi upload ảnh.");
+      return null;
+    }
+  };
+
+  const handleSaveProduct = async (e) => {
+    e.preventDefault();
+    setUploading(true);
+    let imageUrl = formData.img;
+    
+    if (imageFile) {
+      const uploadedUrl = await uploadToCloudinary(imageFile);
+      if (uploadedUrl) imageUrl = uploadedUrl;
+    }
+    
+    const payload = {
+      name: formData.name,
+      price: formData.price ? formData.price.replace(/[^0-9]/g, '') : 0,
+      description: formData.description,
+      imageUrl: imageUrl,
+      giftType: formData.giftType,
+      aiGiftName: formData.aiGiftName
+      // Note: Category logic is simplified for demo
+    };
+
+    try {
+      if (editId) {
+        await api.put(`/products/${editId}`, payload);
+      } else {
+        await api.post('/products', payload);
+      }
+      fetchProducts();
+      setShowModal(false);
+    } catch (error) {
+      console.error("Lỗi khi lưu sản phẩm", error);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const openEditModal = (product) => {
+    setEditId(product.id);
+    setFormData({
+      name: product.name,
+      price: product.price,
+      category: product.category,
+      description: product.description,
+      giftType: product.giftType,
+      aiGiftName: product.aiGiftName,
+      img: product.img
+    });
+    setImageFile(null);
+    setShowModal(true);
+  };
+
+  const openAddModal = () => {
+    setEditId(null);
+    setFormData({
+      name: '', price: '', category: 'Mỹ phẩm', description: '',
+      giftType: '', aiGiftName: '', img: ''
+    });
+    setImageFile(null);
+    setShowModal(true);
+  };
 
   return (
     <div className="bg-background text-on-background font-body-md min-h-screen flex w-full">
@@ -90,7 +229,7 @@ export default function StoreProductsPage() {
           {/* Header & Action */}
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-lg">
             <h1 className="font-headline-lg text-headline-lg text-on-background tracking-tight">Quản lý sản phẩm</h1>
-            <button className="bg-primary-container text-on-primary px-6 py-3 rounded-[12px] font-label-md flex items-center gap-2 shadow-sm hover:shadow-md transition-shadow active:scale-95">
+            <button onClick={openAddModal} className="bg-primary-container text-on-primary px-6 py-3 rounded-[12px] font-label-md flex items-center gap-2 shadow-sm hover:shadow-md transition-shadow active:scale-95">
               <span className="material-symbols-outlined">add</span>
               Thêm sản phẩm
             </button>
@@ -99,15 +238,15 @@ export default function StoreProductsPage() {
           {/* Stats Row */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-md mb-xl">
             <div className="bg-surface-container-lowest rounded-xl p-md shadow-sm border border-outline-variant flex flex-col items-center justify-center hover:shadow-md transition-shadow">
-              <div className="text-[32px] font-bold text-tertiary-container bg-tertiary-container/10 px-6 py-2 rounded-lg mb-2">12</div>
+              <div className="text-[32px] font-bold text-tertiary-container bg-tertiary-container/10 px-6 py-2 rounded-lg mb-2">{products.filter(p => p.status === 'Đã duyệt').length}</div>
               <div className="text-tertiary-container font-label-md uppercase tracking-wider font-semibold">Đã duyệt</div>
             </div>
             <div className="bg-surface-container-lowest rounded-xl p-md shadow-sm border border-outline-variant flex flex-col items-center justify-center hover:shadow-md transition-shadow">
-              <div className="text-[32px] font-bold text-[#D97706] bg-[#FEF3C7] px-6 py-2 rounded-lg mb-2">3</div>
+              <div className="text-[32px] font-bold text-[#D97706] bg-[#FEF3C7] px-6 py-2 rounded-lg mb-2">{products.filter(p => p.status === 'Chờ duyệt').length}</div>
               <div className="text-[#D97706] font-label-md uppercase tracking-wider font-semibold">Chờ duyệt</div>
             </div>
             <div className="bg-surface-container-lowest rounded-xl p-md shadow-sm border border-outline-variant flex flex-col items-center justify-center hover:shadow-md transition-shadow">
-              <div className="text-[32px] font-bold text-error bg-error-container px-6 py-2 rounded-lg mb-2">1</div>
+              <div className="text-[32px] font-bold text-error bg-error-container px-6 py-2 rounded-lg mb-2">{products.filter(p => p.status === 'Bị từ chối').length}</div>
               <div className="text-error font-label-md uppercase tracking-wider font-semibold">Bị từ chối</div>
             </div>
           </div>
@@ -133,136 +272,117 @@ export default function StoreProductsPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-outline-variant">
-                  {/* Row 1 */}
-                  <tr className="hover:bg-surface-container-low/50 transition-colors group">
-                    <td className="px-6 py-4">
-                      <div className="w-16 h-16 rounded-lg bg-surface-variant overflow-hidden shadow-sm">
-                        <img className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-300" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCSjsXEpJbhgEIKIZnSYYyTWQq2foIvZSwfMiVGrvBRcMA1SHQ3zPVwiTHVuGgJi9kwNbu5d4N7fEFus9eU9CT9AgKOHvI5eT0O-8aDVBls7_vhJ69mez6QOmjfY9BIQhSDb7H1aQSoUZEulZRaCMxq6rqMbKGoiiymSekaMWpATIWxsh6iOscKVbSbnrL778jSYQsJuDV7dBH7kwodoyJgDiyV0Q42_UK_yBX22HtcecnoKZw0OcS7xQ" />
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 font-title-md text-on-background font-semibold">Skincare Box</td>
-                    <td className="px-6 py-4 font-medium text-on-surface-variant">450.000đ</td>
-                    <td className="px-6 py-4">
-                      <span className="bg-secondary-container/20 text-secondary-container px-3 py-1 rounded-full font-label-sm font-medium">Mỹ phẩm</span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className="bg-tertiary-container/10 text-tertiary-container px-3 py-1 rounded-full font-label-sm border border-tertiary-container/20 font-medium">Đã duyệt</span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="bg-gradient-to-r from-primary-container to-secondary-container text-white px-3 py-1 rounded-lg font-bold text-sm shadow-sm inline-block">147</div>
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      <button className="text-on-surface-variant hover:text-primary bg-surface hover:bg-surface-variant transition-colors p-2 rounded-lg shadow-sm border border-outline-variant">
-                        <span className="material-symbols-outlined text-[20px]">edit</span>
-                      </button>
-                    </td>
-                  </tr>
-
-                  {/* Row 2 */}
-                  <tr className="hover:bg-surface-container-low/50 transition-colors group">
-                    <td className="px-6 py-4">
-                      <div className="w-16 h-16 rounded-lg bg-surface-variant overflow-hidden shadow-sm">
-                        <img className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-300" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCq4BFMVxInXYOjxxmCMCMWYZjS3tIX75LEY_k_f1UtFJ733Pmq6jJyK67hTtbIPS96pPshCkBpl_fnKPYSk-TGO9FqxsD2JZBaep7IXJt8KdpDxdxgKZBkGHXl2bBzdPaId5PEegF442QVayMcq4ppx5Zd2AhfsC4Xitb7DTBAyi6_zg8W1-lxN6ktzarjMlm5jlz-IJOXtLlFPjx_Ubl8oqLPePKJk_lto9-b3uBzOhX5xTWNgRFOvQ" />
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 font-title-md text-on-background font-semibold">Nến thơm cao cấp</td>
-                    <td className="px-6 py-4 font-medium text-on-surface-variant">250.000đ</td>
-                    <td className="px-6 py-4">
-                      <span className="bg-secondary-container/20 text-secondary-container px-3 py-1 rounded-full font-label-sm font-medium">Trang trí</span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className="bg-tertiary-container/10 text-tertiary-container px-3 py-1 rounded-full font-label-sm border border-tertiary-container/20 font-medium">Đã duyệt</span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="bg-gradient-to-r from-primary-container to-secondary-container text-white px-3 py-1 rounded-lg font-bold text-sm shadow-sm inline-block">89</div>
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      <button className="text-on-surface-variant hover:text-primary bg-surface hover:bg-surface-variant transition-colors p-2 rounded-lg shadow-sm border border-outline-variant">
-                        <span className="material-symbols-outlined text-[20px]">edit</span>
-                      </button>
-                    </td>
-                  </tr>
-
-                  {/* Row 3 */}
-                  <tr className="hover:bg-surface-container-low/50 transition-colors group">
-                    <td className="px-6 py-4">
-                      <div className="w-16 h-16 rounded-lg bg-surface-variant overflow-hidden shadow-sm">
-                        <img className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-300" src="https://lh3.googleusercontent.com/aida-public/AB6AXuAUeYwAe7eEDwuyXGgEZxzBGlVfpNCk3Mj0gakYGDdI1D57GIR8rjfrxKTKCeu8id9dH_hEqiIq4KpzcNaaBsj4SBGyMAD8djl1Ml0e4MfOI44uXAaKYZc7EzKLIM_I06FWin4xrpkH5XlRvszQLlDGtW5mSujyLOaY_AP7pdfZE-13rjMxy35gFFJd_wnfAQPjvsgEXDU_MZPxyoiQrXsnZUT4wAcsFLRMDbySzzTRF-1rhkGog0T0gw" />
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 font-title-md text-on-background font-semibold">Đồng hồ thông minh</td>
-                    <td className="px-6 py-4 font-medium text-on-surface-variant">1.200.000đ</td>
-                    <td className="px-6 py-4">
-                      <span className="bg-secondary-container/20 text-secondary-container px-3 py-1 rounded-full font-label-sm font-medium">Công nghệ</span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className="bg-[#FEF3C7] text-[#D97706] px-3 py-1 rounded-full font-label-sm border border-[#FCD34D] font-medium">Chờ duyệt</span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="bg-surface-variant text-on-surface-variant px-3 py-1 rounded-lg font-bold text-sm inline-block">0</div>
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      <button className="text-on-surface-variant hover:text-primary bg-surface hover:bg-surface-variant transition-colors p-2 rounded-lg shadow-sm border border-outline-variant">
-                        <span className="material-symbols-outlined text-[20px]">edit</span>
-                      </button>
-                    </td>
-                  </tr>
-
-                  {/* Row 4 */}
-                  <tr className="hover:bg-surface-container-low/50 transition-colors group">
-                    <td className="px-6 py-4">
-                      <div className="w-16 h-16 rounded-lg bg-surface-variant overflow-hidden shadow-sm">
-                        <img className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-300" src="https://lh3.googleusercontent.com/aida-public/AB6AXuB2tLZKl5VgiaIVDb3DYHnGvZqUK14Kj_HNrzk9aTydo3ibNk5_HUiOMfZEY7RHfEgxjrjvF6msquQqpuKNjsChN0DzDupd1U8imQHD2nhbRjnvCTC6UlMdYepwyMfm8is_veUb3vBAv1BoBD9IhbWQBx55BAUn6gvoQItf4tII93q0g6zVNXo4d25_pqWyq_QnmqNmSGjnJUrJx2RI21gj47ETR7ecX9tJ58s-QWPU9zEFcOTgsL98fA" />
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 font-title-md text-on-background font-semibold">Gấu bông khổng lồ</td>
-                    <td className="px-6 py-4 font-medium text-on-surface-variant">600.000đ</td>
-                    <td className="px-6 py-4">
-                      <span className="bg-secondary-container/20 text-secondary-container px-3 py-1 rounded-full font-label-sm font-medium">Đồ chơi</span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className="bg-error-container text-error px-3 py-1 rounded-full font-label-sm border border-error/20 font-medium">Bị từ chối</span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="bg-gradient-to-r from-primary-container to-secondary-container text-white px-3 py-1 rounded-lg font-bold text-sm shadow-sm inline-block opacity-60">12</div>
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      <button className="text-on-surface-variant hover:text-primary bg-surface hover:bg-surface-variant transition-colors p-2 rounded-lg shadow-sm border border-outline-variant">
-                        <span className="material-symbols-outlined text-[20px]">edit</span>
-                      </button>
-                    </td>
-                  </tr>
-
-                  {/* Row 5 */}
-                  <tr className="hover:bg-surface-container-low/50 transition-colors group">
-                    <td className="px-6 py-4">
-                      <div className="w-16 h-16 rounded-lg bg-surface-variant overflow-hidden shadow-sm">
-                        <img className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-300" src="https://lh3.googleusercontent.com/aida-public/AB6AXuA60Btpuf7EUvUX-oqtC5e-o0-nA79Yyx5Dyx7vX9DCDtikAN9rNvzbipq5bzIIjb1edwgUtcA1T9Bg3XWeBK6Jc47deRCdUSi80mqkELRhvBcShAXjvBdSxRkjI2EIBBM-4gkxfdYkfeYPLZ9Job6xMHTMzEPd5Lhzkf9j_fwfo3LmTuNxzAkngSHZF9aPKLbAdBcxpkWB06rYzUXP0muNEh8CAONc0g1qqwYSNfz-YhNq7GStKN8lmA" />
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 font-title-md text-on-background font-semibold">Bộ ấm trà gốm sứ</td>
-                    <td className="px-6 py-4 font-medium text-on-surface-variant">850.000đ</td>
-                    <td className="px-6 py-4">
-                      <span className="bg-secondary-container/20 text-secondary-container px-3 py-1 rounded-full font-label-sm font-medium">Gia dụng</span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className="bg-tertiary-container/10 text-tertiary-container px-3 py-1 rounded-full font-label-sm border border-tertiary-container/20 font-medium">Đã duyệt</span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="bg-gradient-to-r from-primary-container to-secondary-container text-white px-3 py-1 rounded-lg font-bold text-sm shadow-sm inline-block">32</div>
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      <button className="text-on-surface-variant hover:text-primary bg-surface hover:bg-surface-variant transition-colors p-2 rounded-lg shadow-sm border border-outline-variant">
-                        <span className="material-symbols-outlined text-[20px]">edit</span>
-                      </button>
-                    </td>
-                  </tr>
+                  {products.map(product => (
+                    <tr key={product.id} className="hover:bg-surface-container-low/50 transition-colors group">
+                      <td className="px-6 py-4">
+                        <div className="w-16 h-16 rounded-lg bg-surface-variant overflow-hidden shadow-sm">
+                          <img className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-300" src={product.img} />
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 font-title-md text-on-background font-semibold">{product.name}</td>
+                      <td className="px-6 py-4 font-medium text-on-surface-variant">{product.price}</td>
+                      <td className="px-6 py-4">
+                        <span className="bg-secondary-container/20 text-secondary-container px-3 py-1 rounded-full font-label-sm font-medium">{product.category}</span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className={`px-3 py-1 rounded-full font-label-sm border font-medium ${product.statusBg}`}>{product.status}</span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="bg-gradient-to-r from-primary-container to-secondary-container text-white px-3 py-1 rounded-lg font-bold text-sm shadow-sm inline-block">{product.aiCount}</div>
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <div className="flex justify-end gap-2">
+                          <button onClick={() => openEditModal(product)} className="text-on-surface-variant hover:text-primary bg-surface hover:bg-surface-variant transition-colors p-2 rounded-lg shadow-sm border border-outline-variant">
+                            <span className="material-symbols-outlined text-[20px]">edit</span>
+                          </button>
+                          <button onClick={() => handleDelete(product.id)} className="text-on-surface-variant hover:text-error bg-surface hover:bg-error-container transition-colors p-2 rounded-lg shadow-sm border border-outline-variant">
+                            <span className="material-symbols-outlined text-[20px]">delete</span>
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>
           </div>
         </main>
       </div>
+
+      {/* Modal Thêm/Sửa Sản Phẩm */}
+      {showModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-fade-in">
+          <div className="bg-surface-container-lowest rounded-xl shadow-lg w-full max-w-lg overflow-hidden animate-slide-in">
+            <div className="px-6 py-4 border-b border-outline-variant flex justify-between items-center bg-surface-container-low">
+              <h3 className="font-title-lg text-title-lg text-on-surface">{editId ? 'Sửa sản phẩm' : 'Thêm sản phẩm mới'}</h3>
+              <button onClick={() => setShowModal(false)} className="text-on-surface-variant hover:text-error transition-colors">
+                <span className="material-symbols-outlined">close</span>
+              </button>
+            </div>
+            
+            <form onSubmit={handleSaveProduct} className="p-6 space-y-4">
+              <div>
+                <label className="block text-label-md font-medium text-on-surface mb-1">Tên sản phẩm *</label>
+                <input required type="text" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full px-4 py-2 border border-outline-variant rounded-lg focus:outline-none focus:border-primary-fixed focus:ring-1 focus:ring-primary-fixed transition-shadow" placeholder="Nhập tên sản phẩm..." />
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-label-md font-medium text-on-surface mb-1">Giá (VNĐ) *</label>
+                  <input required type="text" value={formData.price} onChange={e => setFormData({...formData, price: e.target.value})} className="w-full px-4 py-2 border border-outline-variant rounded-lg focus:outline-none focus:border-primary-fixed focus:ring-1 focus:ring-primary-fixed transition-shadow" placeholder="Ví dụ: 500000" />
+                </div>
+                <div>
+                  <label className="block text-label-md font-medium text-on-surface mb-1">Nhãn quà AI *</label>
+                  <select
+                    required
+                    value={formData.aiGiftName}
+                    onChange={e => {
+                      const selected = GIFT_TAXONOMY.find(item => item.name === e.target.value);
+                      setFormData({
+                        ...formData,
+                        aiGiftName: selected?.name || '',
+                        giftType: selected?.type || ''
+                      });
+                    }}
+                    className="w-full px-4 py-2 border border-outline-variant rounded-lg focus:outline-none focus:border-primary-fixed bg-surface text-on-surface"
+                  >
+                    <option value="">Chọn nhãn gần nhất</option>
+                    {GIFT_TAXONOMY.map(item => (
+                      <option key={item.name} value={item.name}>
+                        {GIFT_NAME_LABELS[item.name] || item.name}
+                      </option>
+                    ))}
+                  </select>
+                  {formData.giftType && (
+                    <p className="mt-1 text-label-sm text-on-surface-variant">
+                      Nhóm model: {formData.giftType}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-label-md font-medium text-on-surface mb-1">Hình ảnh (Cloudinary)</label>
+                <input type="file" accept="image/*" onChange={e => setImageFile(e.target.files[0])} className="w-full px-4 py-2 border border-outline-variant rounded-lg file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary-container file:text-on-primary-container hover:file:bg-primary/20 transition-colors" />
+                {(imageFile || formData.img) && (
+                  <div className="mt-2 w-24 h-24 rounded-lg border border-outline-variant overflow-hidden">
+                    <img src={imageFile ? URL.createObjectURL(imageFile) : formData.img} alt="Preview" className="w-full h-full object-cover" />
+                  </div>
+                )}
+              </div>
+              
+              <div className="pt-4 border-t border-outline-variant flex justify-end gap-3 mt-6">
+                <button type="button" onClick={() => setShowModal(false)} className="px-5 py-2.5 rounded-lg border border-outline text-on-surface-variant font-label-md hover:bg-surface-variant/20 transition-colors">Hủy</button>
+                <button type="submit" disabled={uploading} className="px-5 py-2.5 rounded-lg bg-primary text-on-primary font-label-md hover:bg-primary-dim transition-colors flex items-center gap-2">
+                  {uploading ? <span className="material-symbols-outlined animate-spin">refresh</span> : <span className="material-symbols-outlined">save</span>}
+                  {uploading ? 'Đang lưu...' : 'Lưu sản phẩm'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

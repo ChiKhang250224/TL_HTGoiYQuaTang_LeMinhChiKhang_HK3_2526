@@ -1,14 +1,19 @@
 package com.giftmatch.backend.controller;
 
 import com.giftmatch.backend.dto.ProductRequest;
+import com.giftmatch.backend.dto.ProductResponse;
+import com.giftmatch.backend.entity.GiftLabel;
 import com.giftmatch.backend.entity.Product;
 import com.giftmatch.backend.entity.User;
 import com.giftmatch.backend.repository.CategoryRepository;
+import com.giftmatch.backend.repository.GiftLabelRepository;
 import com.giftmatch.backend.repository.ProductRepository;
 import com.giftmatch.backend.security.UserDetailsImpl;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -20,25 +25,50 @@ public class ProductController {
 
     private final ProductRepository productRepository;
     private final CategoryRepository categoryRepository;
+    private final GiftLabelRepository giftLabelRepository;
 
     @GetMapping
-    public ResponseEntity<List<Product>> getAllProducts() {
-        return ResponseEntity.ok(productRepository.findAll());
+    @Transactional(readOnly = true)
+    public ResponseEntity<List<ProductResponse>> getAllProducts() {
+        return ResponseEntity.ok(
+                productRepository.findAll()
+                        .stream()
+                        .map(ProductResponse::from)
+                        .toList()
+        );
+    }
+
+    @GetMapping("/featured")
+    @Transactional(readOnly = true)
+    public ResponseEntity<List<ProductResponse>> getFeaturedProducts(
+            @RequestParam(defaultValue = "8") int limit
+    ) {
+        int safeLimit = Math.max(1, Math.min(limit, 12));
+        return ResponseEntity.ok(
+                productRepository.findFeaturedProducts(PageRequest.of(0, safeLimit))
+                        .stream()
+                        .map(ProductResponse::from)
+                        .toList()
+        );
     }
 
     @PostMapping
-    public ResponseEntity<Product> createProduct(
+    @Transactional
+    public ResponseEntity<ProductResponse> createProduct(
             @RequestBody ProductRequest request,
             @AuthenticationPrincipal UserDetailsImpl userDetails
     ) {
         User store = userDetails.getUser();
+        GiftLabel giftLabel = getGiftLabel(request.getAiGiftName());
         
         Product product = Product.builder()
                 .name(request.getName())
                 .description(request.getDescription())
                 .price(request.getPrice())
                 .imageUrl(request.getImageUrl())
-                .giftType(request.getGiftType())
+                .giftType(giftLabel.getGiftType().getDisplayName())
+                .aiGiftName(giftLabel.getDisplayName())
+                .giftLabel(giftLabel)
                 .store(store)
                 .status("PENDING")
                 .build();
@@ -47,7 +77,9 @@ public class ProductController {
             categoryRepository.findById(request.getCategoryId()).ifPresent(product::setCategory);
         }
 
-        return ResponseEntity.ok(productRepository.save(product));
+        return ResponseEntity.ok(
+                ProductResponse.from(productRepository.save(product))
+        );
     }
 
     @DeleteMapping("/{id}")
@@ -60,13 +92,61 @@ public class ProductController {
         return ResponseEntity.ok().build();
     }
 
+    @PutMapping("/{id}")
+    @Transactional
+    public ResponseEntity<ProductResponse> updateProduct(
+            @PathVariable Long id,
+            @RequestBody ProductRequest request,
+            @AuthenticationPrincipal UserDetailsImpl userDetails
+    ) {
+        Product product = productRepository.findById(id).orElseThrow();
+        GiftLabel giftLabel = getGiftLabel(request.getAiGiftName());
+        // In a real app, verify the product belongs to the store
+        
+        product.setName(request.getName());
+        product.setDescription(request.getDescription());
+        product.setPrice(request.getPrice());
+        product.setImageUrl(request.getImageUrl());
+        product.setGiftType(giftLabel.getGiftType().getDisplayName());
+        product.setAiGiftName(giftLabel.getDisplayName());
+        product.setGiftLabel(giftLabel);
+        
+        if (request.getCategoryId() != null) {
+            categoryRepository.findById(request.getCategoryId()).ifPresent(product::setCategory);
+        }
+
+        return ResponseEntity.ok(
+                ProductResponse.from(productRepository.save(product))
+        );
+    }
+
     @GetMapping("/search")
-    public ResponseEntity<List<Product>> searchProducts(
+    @Transactional(readOnly = true)
+    public ResponseEntity<List<ProductResponse>> searchProducts(
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) Long categoryId,
+            @RequestParam(required = false) String giftType,
             @RequestParam(required = false) java.math.BigDecimal minPrice,
             @RequestParam(required = false) java.math.BigDecimal maxPrice
     ) {
-        return ResponseEntity.ok(productRepository.searchProducts(keyword, categoryId, minPrice, maxPrice));
+        return ResponseEntity.ok(
+                productRepository.searchProducts(
+                                keyword,
+                                categoryId,
+                                giftType,
+                                minPrice,
+                                maxPrice
+                        )
+                        .stream()
+                        .map(ProductResponse::from)
+                        .toList()
+        );
+    }
+
+    private GiftLabel getGiftLabel(String displayName) {
+        return giftLabelRepository.findByDisplayNameAndIsActiveTrue(displayName)
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Nhãn quà AI không tồn tại hoặc đã ngừng sử dụng."
+                ));
     }
 }

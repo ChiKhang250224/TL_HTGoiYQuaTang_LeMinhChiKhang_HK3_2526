@@ -40,12 +40,15 @@ export default function AuthPage() {
       setSuccess(`Đăng nhập ${provider} thành công!`);
       setError('');
       localStorage.setItem('token', res.data.token);
+      localStorage.setItem('userId', res.data.userId);
       localStorage.setItem('fullName', res.data.fullName);
       localStorage.setItem('role', res.data.role);
       if (res.data.email) localStorage.setItem('email', res.data.email);
       if (res.data.avatar) localStorage.setItem('avatar', res.data.avatar);
       if (res.data.role === 'STORE') {
         navigate('/store-products');
+      } else if (res.data.role === 'ADMIN') {
+        navigate('/admin');
       } else {
         navigate('/home');
       }
@@ -65,12 +68,15 @@ export default function AuthPage() {
       setSuccess(`Đăng nhập thành công!`);
       setError('');
       localStorage.setItem('token', res.data.token);
+      localStorage.setItem('userId', res.data.userId);
       localStorage.setItem('fullName', res.data.fullName);
       localStorage.setItem('role', res.data.role);
       if (res.data.email) localStorage.setItem('email', res.data.email);
       if (res.data.avatar) localStorage.setItem('avatar', res.data.avatar);
       if (res.data.role === 'STORE') {
         navigate('/store-products');
+      } else if (res.data.role === 'ADMIN') {
+        navigate('/admin');
       } else {
         navigate('/home');
       }

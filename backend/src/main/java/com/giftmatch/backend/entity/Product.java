@@ -44,6 +44,13 @@ public class Product {
     @Column(nullable = false, length = 50)
     private String giftType; // Enum from AI model
 
+    @Column(length = 100)
+    private String aiGiftName; // Standardized gift_name from the AI taxonomy
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "gift_label_id")
+    private GiftLabel giftLabel;
+
     @Column(length = 20)
     @Builder.Default
     private String status = "PENDING"; // PENDING, APPROVED, REJECTED
