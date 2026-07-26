@@ -1,17 +1,63 @@
-import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
+import api from '../utils/api';
 
 export default function AddRecipientProfile() {
   const navigate = useNavigate();
+  const { id } = useParams();
   const [formData, setFormData] = useState({
     fullName: '',
     age: '',
     gender: '',
     relationship: '',
-    hobbies: ['Công nghệ', 'Nấu ăn'], // Mock initial
+    hobbies: [],
     notes: '',
     anniversaries: [{ eventName: 'Sinh nhật', eventDate: '' }]
   });
+  const [customHobby, setCustomHobby] = useState('');
+  const [showCustomHobby, setShowCustomHobby] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    if (id) {
+      const fetchProfile = async () => {
+        try {
+          const res = await api.get(`/profiles/${id}`);
+          const recipient = res.data;
+          if (recipient) {
+            const parsedHobbies = Array.isArray(recipient.hobbies)
+              ? recipient.hobbies
+              : String(recipient.hobbies || '')
+                  .split(',')
+                  .map(hobby => hobby.trim())
+                  .filter(Boolean);
+            let parsedAnniversaries = [{ eventName: '', eventDate: '' }];
+            if (recipient.anniversaries && recipient.anniversaries.length > 0) {
+                parsedAnniversaries = recipient.anniversaries.map(a => ({
+                    eventName: a.eventName || '',
+                    eventDate: a.eventDate || ''
+                }));
+            }
+            
+            setFormData({
+              fullName: recipient.fullName || '',
+              age: recipient.age || '',
+              gender: recipient.gender || '',
+              relationship: recipient.relationship || '',
+              hobbies: parsedHobbies,
+              notes: recipient.notes || '',
+              anniversaries: parsedAnniversaries
+            });
+          }
+        } catch (error) {
+          console.error("Error fetching profile details:", error);
+          setError('Không thể tải hồ sơ người nhận.');
+        }
+      };
+      fetchProfile();
+    }
+  }, [id]);
 
   const availableHobbies = [
     'Công nghệ', 'Nấu ăn', 'Du lịch', 'Thời trang', 'Sách', 'Âm nhạc', 'Thể thao'
@@ -24,6 +70,19 @@ export default function AddRecipientProfile() {
         : [...prev.hobbies, hobby];
       return { ...prev, hobbies };
     });
+  };
+
+  const handleAddCustomHobby = () => {
+    const value = customHobby.trim();
+    if (!value) return;
+    setFormData(prev => ({
+      ...prev,
+      hobbies: prev.hobbies.includes(value)
+        ? prev.hobbies
+        : [...prev.hobbies, value],
+    }));
+    setCustomHobby('');
+    setShowCustomHobby(false);
   };
 
   const handleAddAnniversary = () => {
@@ -48,11 +107,37 @@ export default function AddRecipientProfile() {
     });
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    // TODO: Call API to save
-    console.log('Save profile', formData);
-    navigate('/dashboard'); // Navigate back to notebook
+    setSaving(true);
+    setError('');
+
+    const payload = {
+        fullName: formData.fullName.trim(),
+        age: formData.age ? parseInt(formData.age, 10) : null,
+        gender: formData.gender,
+        relationship: formData.relationship,
+        hobbies: formData.hobbies,
+        notes: formData.notes.trim(),
+        anniversaries: formData.anniversaries.filter(a => a.eventName || a.eventDate),
+    };
+
+    try {
+        if (id) {
+            await api.put(`/profiles/${id}`, payload);
+        } else {
+            await api.post('/profiles/me', payload);
+        }
+        navigate('/dashboard');
+    } catch (error) {
+        console.error("Error saving profile:", error);
+        setError(
+          error.response?.data?.message
+          || 'Không thể lưu hồ sơ. Vui lòng kiểm tra dữ liệu và thử lại.'
+        );
+    } finally {
+        setSaving(false);
+    }
   };
 
   return (
@@ -63,12 +148,12 @@ export default function AddRecipientProfile() {
         <span className="material-symbols-outlined text-[16px]">chevron_right</span>
         <Link to="/dashboard" className="hover:text-primary transition-colors">Sổ tay</Link>
         <span className="material-symbols-outlined text-[16px]">chevron_right</span>
-        <span className="text-primary font-bold">Thêm người nhận</span>
+        <span className="text-primary font-bold">{id ? 'Sửa người nhận' : 'Thêm người nhận'}</span>
       </div>
 
       <div className="mb-8">
         <h1 className="font-display-lg text-[32px] md:text-[40px] font-bold text-on-surface mb-2">
-          Thêm Hồ sơ Người nhận
+          {id ? 'Sửa Hồ sơ Người nhận' : 'Thêm Hồ sơ Người nhận'}
         </h1>
         <p className="font-body-md text-on-surface-variant">
           Xây dựng hồ sơ chi tiết để AI đề xuất những món quà tinh tế và ý nghĩa nhất.
@@ -171,10 +256,50 @@ export default function AddRecipientProfile() {
                   </button>
                 );
               })}
-              <button type="button" className="px-4 py-2 rounded-full text-label-md text-primary border border-dashed border-primary hover:bg-primary-container hover:text-white transition-all flex items-center gap-1">
-                <span className="material-symbols-outlined text-[18px]">add</span> Thêm mới
-              </button>
+              {!showCustomHobby && (
+                <button
+                  type="button"
+                  onClick={() => setShowCustomHobby(true)}
+                  className="px-4 py-2 rounded-full text-label-md text-primary border border-dashed border-primary hover:bg-primary-container hover:text-white transition-all flex items-center gap-1"
+                >
+                  <span className="material-symbols-outlined text-[18px]">add</span> Thêm mới
+                </button>
+              )}
             </div>
+            {showCustomHobby && (
+              <div className="mt-3 flex gap-2">
+                <input
+                  value={customHobby}
+                  onChange={(event) => setCustomHobby(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') {
+                      event.preventDefault();
+                      handleAddCustomHobby();
+                    }
+                  }}
+                  autoFocus
+                  placeholder="Nhập sở thích khác"
+                  className="flex-grow px-4 py-2.5 bg-surface-container rounded-xl border border-transparent focus:outline-none focus:ring-2 focus:ring-primary-container"
+                />
+                <button
+                  type="button"
+                  onClick={handleAddCustomHobby}
+                  className="px-4 py-2.5 rounded-xl bg-primary text-white font-bold"
+                >
+                  Thêm
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCustomHobby('');
+                    setShowCustomHobby(false);
+                  }}
+                  className="px-4 py-2.5 rounded-xl border border-outline-variant"
+                >
+                  Hủy
+                </button>
+              </div>
+            )}
           </div>
 
           <div>
@@ -246,12 +371,22 @@ export default function AddRecipientProfile() {
         </div>
 
         {/* Footer Actions */}
+        {error && (
+          <div className="mb-5 rounded-xl bg-error-container px-4 py-3 text-error">
+            {error}
+          </div>
+        )}
         <div className="flex justify-end gap-4">
           <button type="button" onClick={() => navigate(-1)} className="px-8 py-3 rounded-xl border border-outline-variant text-on-surface font-bold hover:bg-surface-container transition-colors">
             Hủy
           </button>
-          <button type="submit" className="px-8 py-3 rounded-xl bg-primary text-white font-bold hover:bg-on-primary-fixed-variant transition-colors flex items-center gap-2 shadow-sm">
-            <span className="material-symbols-outlined text-[20px]">save</span> Lưu hồ sơ
+          <button
+            type="submit"
+            disabled={saving}
+            className="px-8 py-3 rounded-xl bg-primary text-white font-bold hover:bg-on-primary-fixed-variant transition-colors flex items-center gap-2 shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            <span className="material-symbols-outlined text-[20px]">save</span>
+            {saving ? 'Đang lưu...' : 'Lưu hồ sơ'}
           </button>
         </div>
       </form>

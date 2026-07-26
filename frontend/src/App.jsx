@@ -1,4 +1,16 @@
-import { BrowserRouter, Routes, Route, Link, useLocation, Navigate } from 'react-router-dom';
+git add `
+  backend/src/main/resources/db/migration/V5__store_recipient_name_in_history.sql `
+backend/src/main/java/com/giftmatch/backend/entity/RecommendationHistory.java `
+  backend/src/main/java/com/giftmatch/backend/dto/HistoryResponse.java `
+backend/src/main/java/com/giftmatch/backend/dto/RecommendationResponse.java `
+  backend/src/main/java/com/giftmatch/backend/dto/RecipientProfileDto.java `
+backend/src/main/java/com/giftmatch/backend/service/HistoryService.java `
+  backend/src/main/java/com/giftmatch/backend/service/RecommendationService.java `
+backend/src/main/java/com/giftmatch/backend/service/RecipientProfileService.java `
+  backend/src/main/java/com/giftmatch/backend/controller/HistoryController.java `
+backend/src/main/java/com/giftmatch/backend/controller/RecipientProfileController.java
+
+git commit -m "feat(backend): hoàn thiện sổ tay và lưu tên người nhận trong lịch sử"import { BrowserRouter, Routes, Route, Link, useLocation, Navigate } from 'react-router-dom';
 import Home from './pages/Home';
 import Dashboard from './pages/Dashboard';
 import Recommendations from './pages/Recommendations';
@@ -10,12 +22,15 @@ import StoreProductsPage from './pages/StoreProductsPage';
 import Favorites from './pages/Favorites';
 import AddRecipientProfile from './pages/AddRecipientProfile';
 import History from './pages/History';
+import SurveyPage from './pages/SurveyPage';
+import AiManagement from './pages/AiManagement';
+import AdminPage from './pages/AdminPage';
 import { useState, useEffect } from 'react';
 
 function AppLayout({ children }) {
   const location = useLocation();
-  const noLayoutPages = ['/login', '/register', '/store-profile', '/store-products'];
-  const hideDefaultLayout = noLayoutPages.includes(location.pathname);
+  const noLayoutPages = ['/login', '/register', '/store-profile', '/store-products', '/survey', '/admin'];
+  const hideDefaultLayout = noLayoutPages.includes(location.pathname) || location.pathname.startsWith('/admin/');
   const [userName, setUserName] = useState(null);
   const [userAvatar, setUserAvatar] = useState(null);
 
@@ -31,6 +46,20 @@ function AppLayout({ children }) {
     window.location.href = '/';
   };
 
+  const navItemClass = (active) => [
+    'font-body-md pb-1 border-b-2 transition-colors',
+    active
+      ? 'text-primary font-bold border-primary'
+      : 'text-on-surface-variant border-transparent hover:text-primary-container',
+  ].join(' ');
+
+  const isHomeActive = location.pathname === '/' || location.pathname === '/home';
+  const isRecommendationsActive = location.pathname === '/recommendations';
+  const isNotebookActive = location.pathname === '/dashboard'
+    || location.pathname === '/add-profile'
+    || location.pathname.startsWith('/edit-profile/');
+  const isHistoryActive = location.pathname === '/history';
+
   return (
     <div className="bg-background text-on-surface font-sans antialiased selection:bg-primary-container selection:text-white min-h-screen flex flex-col">
       {!hideDefaultLayout && (
@@ -38,23 +67,32 @@ function AppLayout({ children }) {
           <div className="flex justify-between items-center px-gutter md:px-xl py-md max-w-container-max mx-auto h-20">
             {/* Brand */}
             <Link className="flex items-center gap-xs" to={userName ? "/home" : "/"}>
-              <img alt="GiftMatch AI Logo" className="h-10 w-10 object-contain rounded-md" src="https://lh3.googleusercontent.com/aida/AP1WRLsr7D7H0GKzQesVtP5Aseu58Aoto8depA1CO6RMGE3Y1-5IgZmx5IqxZkoGBv5zZZtd8tGbWGazDQuBBbj23rtgVTuyZ01-5cmB5s-UoW6hCgqLVX3hs5ocAUD50HRwZX3fdwjrk7LeYCO_C3gPdCDFDoK4Mlz82VKrgxVkAV6AZEAIQoCSDYcbyjMGkg8Pjp68Xc_BmzgFKs-WyHdxz26uv_b2Z5ka48WYTSZF-MwcawCJ0Jubx8q_StDs"/>
+              <div className="h-10 w-10 bg-primary-container text-primary flex items-center justify-center rounded-md">
+                <span className="material-symbols-outlined font-bold text-2xl">redeem</span>
+              </div>
               <span className="font-heading text-[24px] font-bold text-primary hidden sm:block">GiftMatch AI</span>
             </Link>
             {/* Navigation Links */}
             <ul className="hidden md:flex items-center gap-lg">
               <li>
-                <Link className="text-primary font-bold border-b-2 border-primary pb-1 font-body-md" to={userName ? "/home" : "/"}>Trang chủ</Link>
+                <Link className={navItemClass(isHomeActive)} to={userName ? "/home" : "/"}>Trang chủ</Link>
               </li>
               <li>
-                <Link className="text-on-surface-variant hover:text-primary-container transition-all font-body-md" to="/recommendations">Khám phá</Link>
+                <Link className={navItemClass(isRecommendationsActive)} to="/recommendations">Khám phá</Link>
               </li>
               <li>
-                <Link className="text-on-surface-variant hover:text-primary-container transition-all font-body-md" to="/dashboard">Sổ tay</Link>
+                <Link className={navItemClass(isNotebookActive)} to="/dashboard">Sổ tay</Link>
               </li>
               <li>
-                <Link className="text-on-surface-variant hover:text-primary-container transition-all font-body-md" to="/history">Lịch sử</Link>
+                <Link className={navItemClass(isHistoryActive)} to="/history">Lịch sử</Link>
               </li>
+              {localStorage.getItem('role') === 'ADMIN' && (
+                <li>
+                  <Link className="text-on-surface-variant hover:text-primary-container transition-all font-body-md" to="/admin/ai">
+                    Quản lý AI
+                  </Link>
+                </li>
+              )}
             </ul>
             {/* Trailing Action */}
             <div className="flex items-center gap-sm">
@@ -121,6 +159,14 @@ function ProtectedRoute({ children }) {
   return children;
 }
 
+function AdminRoute({ children }) {
+  const isAdmin = localStorage.getItem('role') === 'ADMIN';
+  if (!isAdmin) {
+    return <Navigate to="/home" replace />;
+  }
+  return children;
+}
+
 function App() {
   return (
     <BrowserRouter>
@@ -131,13 +177,19 @@ function App() {
           <Route path="/login" element={<AuthPage />} />
           <Route path="/register" element={<AuthPage />} />
           <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-          <Route path="/recommendations" element={<Recommendations />} />
+          <Route path="/recommendations" element={<ProtectedRoute><Recommendations /></ProtectedRoute>} />
           <Route path="/favorites" element={<Favorites />} />
           <Route path="/add-profile" element={<ProtectedRoute><AddRecipientProfile /></ProtectedRoute>} />
+          <Route path="/edit-profile/:id" element={<ProtectedRoute><AddRecipientProfile /></ProtectedRoute>} />
+          <Route path="/survey" element={<ProtectedRoute><SurveyPage /></ProtectedRoute>} />
           <Route path="/history" element={<ProtectedRoute><History /></ProtectedRoute>} />
           <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
           <Route path="/store-profile" element={<ProtectedRoute><StoreProfilePage /></ProtectedRoute>} />
           <Route path="/store-products" element={<ProtectedRoute><StoreProductsPage /></ProtectedRoute>} />
+          
+          {/* Admin Routes */}
+          <Route path="/admin" element={<ProtectedRoute><AdminPage /></ProtectedRoute>} />
+          <Route path="/admin/ai" element={<ProtectedRoute><AiManagement /></ProtectedRoute>} />
         </Routes>
       </AppLayout>
     </BrowserRouter>

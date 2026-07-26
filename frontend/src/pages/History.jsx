@@ -1,63 +1,60 @@
-import React from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import api from '../utils/api';
+import { GIFT_NAME_LABELS, GIFT_TYPE_LABELS } from '../constants/giftTaxonomy';
+
+const FALLBACK_IMAGE =
+  'https://images.unsplash.com/photo-1549465220-1a8b9238cd48?q=80&w=600&auto=format&fit=crop';
+
+const formatPrice = (price) =>
+  new Intl.NumberFormat('vi-VN', {
+    style: 'currency',
+    currency: 'VND',
+    maximumFractionDigits: 0,
+  }).format(Number(price || 0));
+
+const formatDate = (value) => {
+  if (!value) return '';
+  return new Intl.DateTimeFormat('vi-VN', {
+    dateStyle: 'long',
+    timeStyle: 'short',
+  }).format(new Date(value));
+};
 
 export default function History() {
-  const historyData = [
-    {
-      id: 1,
-      dateGroup: 'Hôm nay',
-      icon: 'schedule',
-      recipient: {
-        name: 'Tặng Mẹ',
-        avatar: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?ixlib=rb-4.0.3&auto=format&fit=crop&w=200&q=80',
-        occasion: 'Sinh nhật'
-      },
-      insights: '"Dựa trên sở thích làm vườn và phong cách tối giản của Mẹ, hệ thống đã chọn lọc các sản phẩm mang tính thư giãn và tinh tế."',
-      products: [
-        {
-          id: 'p1',
-          name: 'Bộ trà gốm thủ công',
-          price: '1.250.000đ',
-          match: 98,
-          image: 'https://images.unsplash.com/photo-1577905781358-1f1966a4f91d?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80'
-        },
-        {
-          id: 'p2',
-          name: 'Bộ dụng cụ làm vườn mini',
-          price: '850.000đ',
-          match: 92,
-          image: 'https://images.unsplash.com/photo-1416879598555-220b33230489?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80'
-        }
-      ]
-    },
-    {
-      id: 2,
-      dateGroup: 'Tuần trước',
-      icon: 'calendar_today',
-      recipient: {
-        name: 'Tặng Anh Trai',
-        avatar: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?ixlib=rb-4.0.3&auto=format&fit=crop&w=200&q=80',
-        occasion: 'Tân gia'
-      },
-      insights: '"Đã lọc các thiết bị thông minh và đồ trang trí phong cách công nghiệp cho căn hộ mới."',
-      products: [
-        {
-          id: 'p3',
-          name: 'Loa Bluetooth thông minh',
-          price: '3.400.000đ',
-          match: 95,
-          image: 'https://images.unsplash.com/photo-1608043152269-423dbba4e7e1?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80'
-        },
-        {
-          id: 'p4',
-          name: 'Đèn bàn kim loại hiện đại',
-          price: '1.150.000đ',
-          match: 89,
-          image: 'https://images.unsplash.com/photo-1507473885765-e6ed057f782c?ixlib=rb-4.0.3&auto=format&fit=crop&w=400&q=80'
-        }
-      ]
-    }
-  ];
+  const [historyData, setHistoryData] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    const loadHistory = async () => {
+      try {
+        const response = await api.get('/history/me');
+        setHistoryData(response.data || []);
+      } catch (requestError) {
+        setError(
+          requestError.response?.data?.message
+          || 'Không thể tải lịch sử gợi ý.'
+        );
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadHistory();
+  }, []);
+
+  if (loading) {
+    return (
+      <main className="flex-grow grid place-items-center">
+        <div className="text-center text-on-surface-variant">
+          <span className="material-symbols-outlined text-5xl text-primary animate-pulse">
+            history
+          </span>
+          <p>Đang tải lịch sử...</p>
+        </div>
+      </main>
+    );
+  }
 
   return (
     <main className="flex-grow max-w-container-max mx-auto w-full px-gutter md:px-xl py-lg">
@@ -66,96 +63,135 @@ export default function History() {
           Lịch sử gợi ý quà tặng
         </h1>
         <p className="font-body-md text-on-surface-variant leading-relaxed">
-          Xem lại các hành trình tìm kiếm quà tặng của bạn và tiếp tục khám phá những lựa chọn tuyệt vời nhất cho người thân yêu.
+          Mỗi lần AI phân tích thành công sẽ tự động được lưu tại đây.
         </p>
       </div>
 
-      <div className="relative border-l-2 border-surface-container-high ml-4 md:ml-8 pb-10">
-        {historyData.map((history, index) => (
-          <div key={history.id} className="mb-12 relative pl-8 md:pl-12">
-            {/* Timeline Marker */}
-            <div className="absolute -left-[17px] top-0 bg-white border-2 border-surface-container-high rounded-full w-8 h-8 flex items-center justify-center text-on-surface-variant">
-              <span className="material-symbols-outlined text-[16px]">{history.icon}</span>
-            </div>
-            
-            <h3 className="font-bold text-title-md text-primary mb-6 ml-2 -mt-1">{history.dateGroup}</h3>
-            
-            {/* History Card */}
-            <div className="bg-white rounded-3xl p-6 shadow-sm border border-surface-container flex flex-col lg:flex-row gap-8">
-              
-              {/* Left Column: Recipient & Insights */}
-              <div className="w-full lg:w-1/3 shrink-0 flex flex-col">
-                <div className="flex items-center gap-4 mb-6">
-                  <img src={history.recipient.avatar} alt={history.recipient.name} className="w-16 h-16 rounded-full object-cover shadow-sm border border-surface-variant" />
-                  <div>
-                    <h4 className="font-bold text-title-md text-on-surface">{history.recipient.name}</h4>
-                    <span className="inline-block mt-1 bg-secondary-fixed/50 text-secondary px-3 py-1 rounded-full text-label-sm font-medium flex items-center gap-1 w-max">
-                      <span className="material-symbols-outlined text-[14px]">celebration</span>
-                      {history.recipient.occasion}
-                    </span>
-                  </div>
-                </div>
-                
-                <div className="bg-surface-container-low rounded-2xl p-5 border border-surface-container-high flex-grow">
-                  <div className="flex items-center gap-2 text-primary font-bold text-label-md mb-2">
-                    <span className="material-symbols-outlined" style={{fontVariationSettings: "'FILL' 1"}}>auto_awesome</span>
-                    AI INSIGHTS
-                  </div>
-                  <p className="italic text-body-md text-on-surface-variant leading-relaxed">
-                    {history.insights}
-                  </p>
-                </div>
+      {error && (
+        <div className="rounded-xl bg-error-container px-4 py-3 text-error mb-lg">
+          {error}
+        </div>
+      )}
+
+      {historyData.length === 0 ? (
+        <div className="rounded-3xl border border-dashed border-outline-variant p-xl text-center">
+          <span className="material-symbols-outlined text-6xl text-outline">history_toggle_off</span>
+          <h2 className="font-title-lg font-bold mt-md">Chưa có lịch sử</h2>
+          <p className="text-on-surface-variant mt-xs mb-lg">
+            Hoàn thành khảo sát đầu tiên để nhận gợi ý cá nhân hóa.
+          </p>
+          <Link to="/survey" className="rounded-xl bg-primary px-6 py-3 text-white font-bold">
+            Bắt đầu khảo sát
+          </Link>
+        </div>
+      ) : (
+        <div className="relative border-l-2 border-surface-container-high ml-4 md:ml-8 pb-10">
+          {historyData.map((history) => (
+            <article key={history.historyId} className="mb-12 relative pl-8 md:pl-12">
+              <div className="absolute -left-[17px] top-0 bg-white border-2 border-primary rounded-full w-8 h-8 flex items-center justify-center text-primary">
+                <span className="material-symbols-outlined text-[16px]">auto_awesome</span>
               </div>
 
-              {/* Right Column: Products */}
-              <div className="w-full flex flex-col flex-grow min-w-0">
-                <div className="flex items-center justify-between mb-4">
-                  <span className="font-medium text-label-md text-on-surface-variant">
-                    Sản phẩm gợi ý ({history.products.length})
-                  </span>
-                  <Link to="/recommendations" className="text-primary hover:text-primary-container font-medium text-label-md flex items-center gap-1 transition-colors">
-                    Tìm lại quà tương tự <span className="material-symbols-outlined text-[18px]">chevron_right</span>
-                  </Link>
-                </div>
-                
-                {/* Horizontal Scroll Products */}
-                <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide snap-x">
-                  {history.products.map(product => (
-                    <div key={product.id} className="snap-start shrink-0 w-64 bg-surface-container-lowest rounded-2xl overflow-hidden border border-surface-variant group relative">
-                      <div className="relative h-48 overflow-hidden bg-surface-variant">
-                        <img src={product.image} alt={product.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-                        <button className="absolute top-2 right-2 p-1.5 bg-white/80 backdrop-blur rounded-full text-outline hover:text-primary-container hover:bg-white transition-all shadow-sm">
-                          <span className="material-symbols-outlined text-[18px]">favorite_border</span>
-                        </button>
-                        <div className="absolute bottom-2 left-2 bg-tertiary-fixed text-on-tertiary-fixed px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide">
-                          {product.match}% Match
-                        </div>
-                      </div>
-                      <div className="p-4">
-                        <h5 className="font-bold text-body-md text-on-surface mb-1 line-clamp-1">{product.name}</h5>
-                        <p className="text-primary font-bold text-label-md">{product.price}</p>
-                      </div>
+              <h3 className="font-bold text-title-md text-primary mb-4 ml-2 -mt-1">
+                {formatDate(history.createdAt)}
+              </h3>
+
+              <div className="bg-white rounded-3xl p-6 shadow-sm border border-surface-container flex flex-col lg:flex-row gap-8">
+                <div className="w-full lg:w-1/3 shrink-0 flex flex-col">
+                  <div className="flex items-center gap-4 mb-5">
+                    <div className="w-14 h-14 rounded-full bg-primary/10 text-primary grid place-items-center font-bold text-xl">
+                      {(history.recipient?.fullName
+                        || history.recipientName
+                        || 'N').charAt(0).toUpperCase()}
                     </div>
-                  ))}
+                    <div>
+                      <h4 className="font-bold text-title-md text-on-surface">
+                        {history.recipient?.fullName
+                          || history.recipientName
+                          || 'Người nhận chưa đặt tên'}
+                      </h4>
+                      {history.recipient && (
+                        <span className="text-label-sm text-on-surface-variant">
+                          {history.recipient.age || '?'} tuổi · {history.recipient.relationship || ''}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="bg-surface-container-low rounded-2xl p-5 border border-surface-container-high flex-grow">
+                    <div className="flex items-center gap-2 text-primary font-bold text-label-md mb-2">
+                      <span className="material-symbols-outlined">psychology</span>
+                      AI INSIGHTS
+                    </div>
+                    <p className="text-body-md text-on-surface-variant leading-relaxed">
+                      {history.aiInsights}
+                    </p>
+                  </div>
                 </div>
-                
-                <div className="mt-auto pt-4 flex justify-end">
-                  <Link to="/recommendations" className="px-8 py-2.5 rounded-xl bg-primary text-white font-bold hover:bg-on-primary-fixed-variant transition-colors shadow-sm">
-                    Xem lại toàn bộ kết quả
-                  </Link>
+
+                <div className="w-full flex flex-col flex-grow min-w-0">
+                  <div className="flex items-center justify-between mb-4">
+                    <span className="font-medium text-label-md text-on-surface-variant">
+                      Sản phẩm đã gợi ý ({history.products?.length || 0})
+                    </span>
+                    <Link
+                      to="/survey"
+                      state={{
+                        recipientProfileId: history.recipient?.profileId,
+                        recipientName: history.recipient?.fullName
+                          || history.recipientName,
+                      }}
+                      className="text-primary font-medium text-label-md flex items-center gap-1"
+                    >
+                      Gợi ý lại
+                      <span className="material-symbols-outlined text-[18px]">refresh</span>
+                    </Link>
+                  </div>
+
+                  {history.products?.length ? (
+                    <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide snap-x">
+                      {history.products.map((product) => (
+                        <div
+                          key={product.productId}
+                          className="snap-start shrink-0 w-64 bg-surface-container-lowest rounded-2xl overflow-hidden border border-surface-variant"
+                        >
+                          <div className="h-44 overflow-hidden bg-surface-variant">
+                            <img
+                              src={product.imageUrl || FALLBACK_IMAGE}
+                              alt={product.name}
+                              className="w-full h-full object-cover"
+                            />
+                          </div>
+                          <div className="p-4">
+                            <span className="text-label-sm text-on-surface-variant">
+                              {product.storeName || 'GiftMatch Store'}
+                            </span>
+                            <h5 className="font-bold text-body-md text-on-surface line-clamp-1">
+                              {product.name}
+                            </h5>
+                            <p className="text-label-sm text-primary mt-1">
+                              {GIFT_NAME_LABELS[product.aiGiftName]
+                                || GIFT_TYPE_LABELS[product.giftType]
+                                || product.giftType}
+                            </p>
+                            <p className="text-primary font-bold mt-2">
+                              {formatPrice(product.price)}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="rounded-xl border border-dashed border-outline-variant p-6 text-center text-on-surface-variant">
+                      Lần phân tích này chưa có sản phẩm đã duyệt phù hợp.
+                    </div>
+                  )}
                 </div>
               </div>
-              
-            </div>
-          </div>
-        ))}
-      </div>
-
-      <div className="flex justify-center mt-4">
-        <button className="px-8 py-3 rounded-full border border-outline-variant text-on-surface-variant font-bold hover:bg-surface-container transition-colors flex items-center gap-2">
-          Tải thêm lịch sử <span className="material-symbols-outlined text-[20px]">expand_more</span>
-        </button>
-      </div>
+            </article>
+          ))}
+        </div>
+      )}
     </main>
   );
 }
