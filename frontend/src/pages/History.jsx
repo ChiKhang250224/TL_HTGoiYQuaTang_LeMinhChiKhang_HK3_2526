@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../utils/api';
 import { GIFT_NAME_LABELS, GIFT_TYPE_LABELS } from '../constants/giftTaxonomy';
+import RecommendationFeedback from '../components/RecommendationFeedback';
 
 const FALLBACK_IMAGE =
   'https://images.unsplash.com/photo-1549465220-1a8b9238cd48?q=80&w=600&auto=format&fit=crop';
@@ -127,6 +128,13 @@ export default function History() {
                       {history.aiInsights}
                     </p>
                   </div>
+
+                  <RecommendationFeedback
+                    historyId={history.historyId}
+                    products={history.products || []}
+                    initialFeedback={history.feedback}
+                    compact
+                  />
                 </div>
 
                 <div className="w-full flex flex-col flex-grow min-w-0">

@@ -61,6 +61,21 @@ public class RecommendationFeedbackService {
         return toResponse(feedbackRepository.save(feedback));
     }
 
+    @Transactional(readOnly = true)
+    public RecommendationFeedbackResponse get(
+            Long historyId,
+            Long userId
+    ) {
+        historyRepository
+                .findByHistoryIdAndUser_UserId(historyId, userId)
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Lịch sử gợi ý không tồn tại hoặc không thuộc người dùng hiện tại."
+                ));
+        return feedbackRepository.findByHistory_HistoryId(historyId)
+                .map(this::toResponse)
+                .orElse(null);
+    }
+
     private RecommendationFeedbackResponse toResponse(
             RecommendationFeedback feedback
     ) {

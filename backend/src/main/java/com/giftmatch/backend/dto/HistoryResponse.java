@@ -21,6 +21,7 @@ public class HistoryResponse {
     private String recipientName;
     private Recipient recipient;
     private List<ProductItem> products;
+    private Feedback feedback;
 
     @Data
     @Builder
@@ -46,5 +47,16 @@ public class HistoryResponse {
         private BigDecimal aiScore;
         private BigDecimal matchScore;
         private Integer rankPosition;
+    }
+
+    @Data
+    @Builder
+    public static class Feedback {
+        private Long feedbackId;
+        private Integer rating;
+        private Boolean relevant;
+        private Long selectedProductId;
+        private String comment;
+        private LocalDateTime updatedAt;
     }
 }

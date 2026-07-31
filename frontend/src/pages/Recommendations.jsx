@@ -4,6 +4,7 @@ import CustomSelect from '../components/CustomSelect';
 import useFavorites from '../hooks/useFavorites';
 import { GIFT_NAME_LABELS, GIFT_TYPE_LABELS } from '../constants/giftTaxonomy';
 import api from '../utils/api';
+import RecommendationFeedback from '../components/RecommendationFeedback';
 
 const FALLBACK_IMAGE =
   'https://images.unsplash.com/photo-1549465220-1a8b9238cd48?q=80&w=800&auto=format&fit=crop';
@@ -245,6 +246,11 @@ export default function Recommendations() {
             {saveError}
           </div>
         )}
+
+        <RecommendationFeedback
+          historyId={result.historyId}
+          products={result.products || []}
+        />
 
         <div className="mt-lg flex flex-wrap gap-sm">
           {(result.predictedGifts || []).slice(0, 5).map((gift) => (

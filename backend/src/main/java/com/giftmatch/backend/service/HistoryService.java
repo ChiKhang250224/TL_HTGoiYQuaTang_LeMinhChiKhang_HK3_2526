@@ -9,6 +9,7 @@ import com.giftmatch.backend.entity.AiModel;
 import com.giftmatch.backend.entity.Product;
 import com.giftmatch.backend.entity.RecipientProfile;
 import com.giftmatch.backend.entity.RecommendationHistory;
+import com.giftmatch.backend.entity.RecommendationFeedback;
 import com.giftmatch.backend.entity.RecommendationItem;
 import com.giftmatch.backend.entity.RecommendationPrediction;
 import com.giftmatch.backend.entity.User;
@@ -16,6 +17,7 @@ import com.giftmatch.backend.repository.AiModelRepository;
 import com.giftmatch.backend.repository.ProductRepository;
 import com.giftmatch.backend.repository.RecipientProfileRepository;
 import com.giftmatch.backend.repository.RecommendationHistoryRepository;
+import com.giftmatch.backend.repository.RecommendationFeedbackRepository;
 import com.giftmatch.backend.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -32,6 +34,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class HistoryService {
     private final RecommendationHistoryRepository historyRepository;
+    private final RecommendationFeedbackRepository feedbackRepository;
     private final UserRepository userRepository;
     private final ProductRepository productRepository;
     private final RecipientProfileRepository recipientProfileRepository;
@@ -193,6 +196,25 @@ public class HistoryService {
                 })
                 .toList();
 
+        RecommendationFeedback savedFeedback = feedbackRepository
+                .findByHistory_HistoryId(history.getHistoryId())
+                .orElse(null);
+        HistoryResponse.Feedback feedback = savedFeedback == null
+                ? null
+                : HistoryResponse.Feedback.builder()
+                    .feedbackId(savedFeedback.getFeedbackId())
+                    .rating(savedFeedback.getRating())
+                    .relevant(savedFeedback.getIsRelevant())
+                    .selectedProductId(
+                            savedFeedback.getSelectedProduct() == null
+                                    ? null
+                                    : savedFeedback.getSelectedProduct()
+                                        .getProductId()
+                    )
+                    .comment(savedFeedback.getComment())
+                    .updatedAt(savedFeedback.getUpdatedAt())
+                    .build();
+
         return HistoryResponse.builder()
                 .historyId(history.getHistoryId())
                 .createdAt(history.getCreatedAt())
@@ -205,6 +227,7 @@ public class HistoryService {
                 .recipientName(history.getRecipientName())
                 .recipient(recipient)
                 .products(products)
+                .feedback(feedback)
                 .build();
     }
 

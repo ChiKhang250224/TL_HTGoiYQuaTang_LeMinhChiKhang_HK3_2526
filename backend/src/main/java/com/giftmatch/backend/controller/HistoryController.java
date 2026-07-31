@@ -70,6 +70,20 @@ public class HistoryController {
         ));
     }
 
+    @GetMapping("/{historyId}/feedback")
+    public ResponseEntity<RecommendationFeedbackResponse> getFeedback(
+            @PathVariable Long historyId,
+            @AuthenticationPrincipal UserDetailsImpl userDetails
+    ) {
+        RecommendationFeedbackResponse feedback = feedbackService.get(
+                historyId,
+                userDetails.getUser().getUserId()
+        );
+        return feedback == null
+                ? ResponseEntity.noContent().build()
+                : ResponseEntity.ok(feedback);
+    }
+
     @PutMapping("/{historyId}/recipient-profile/{profileId}")
     public ResponseEntity<HistoryResponse> linkRecipientProfile(
             @PathVariable Long historyId,
