@@ -11,9 +11,11 @@ import com.giftmatch.backend.repository.ProductRepository;
 import com.giftmatch.backend.security.UserDetailsImpl;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.HttpStatus;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -50,6 +52,42 @@ public class ProductController {
                         .map(ProductResponse::from)
                         .toList()
         );
+    }
+
+    @GetMapping("/{id}")
+    @Transactional
+    public ResponseEntity<ProductResponse> getProductDetail(
+            @PathVariable Long id,
+            @AuthenticationPrincipal UserDetailsImpl userDetails
+    ) {
+        Product product = productRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "Không tìm thấy sản phẩm."
+                ));
+
+        boolean isAdmin = userDetails.getAuthorities().stream()
+                .anyMatch(authority ->
+                        authority.getAuthority().equals("ROLE_ADMIN"));
+        boolean isOwner = product.getStore() != null
+                && product.getStore().getUserId().equals(
+                        userDetails.getUser().getUserId()
+                );
+        if (!"APPROVED".equals(product.getStatus())
+                && !isAdmin
+                && !isOwner) {
+            throw new ResponseStatusException(
+                    HttpStatus.NOT_FOUND,
+                    "Sản phẩm chưa sẵn sàng để hiển thị."
+            );
+        }
+
+        if ("APPROVED".equals(product.getStatus()) && !isAdmin && !isOwner) {
+            product.setViewCount(
+                    (product.getViewCount() == null ? 0 : product.getViewCount()) + 1
+            );
+        }
+        return ResponseEntity.ok(ProductResponse.from(product));
     }
 
     @PostMapping

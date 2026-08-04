@@ -319,10 +319,10 @@ export default function UserHome() {
                       {formatPrice(product.price)}
                     </span>
                     <Link
-                      to="/survey"
+                      to={`/products/${product.productId}`}
                       className="px-4 py-2 border-2 border-secondary text-secondary font-bold text-[12px] rounded-xl hover:bg-secondary hover:text-white transition-all active:scale-95"
                     >
-                      Tìm quà
+                      Chi tiết
                     </Link>
                   </div>
                 </div>

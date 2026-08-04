@@ -5,6 +5,7 @@ import useFavorites from '../hooks/useFavorites';
 import { GIFT_NAME_LABELS, GIFT_TYPE_LABELS } from '../constants/giftTaxonomy';
 import api from '../utils/api';
 import RecommendationFeedback from '../components/RecommendationFeedback';
+import useCompareProducts from '../hooks/useCompareProducts';
 
 const FALLBACK_IMAGE =
   'https://images.unsplash.com/photo-1549465220-1a8b9238cd48?q=80&w=800&auto=format&fit=crop';
@@ -63,6 +64,11 @@ export default function Recommendations() {
   const surveyData = readStoredJson('temp_survey_data');
   const result = location.state?.result || storedResult;
   const { toggleFavorite, isFavorite } = useFavorites();
+  const {
+    count: compareCount,
+    isSelected: isCompareSelected,
+    toggleProduct: toggleCompareProduct,
+  } = useCompareProducts();
   const [sortOrder, setSortOrder] = useState('Độ phù hợp');
   const [selectedType, setSelectedType] = useState('all');
   const [maxPrice, setMaxPrice] = useState(5000000);
@@ -72,6 +78,18 @@ export default function Recommendations() {
   const [savingProfile, setSavingProfile] = useState(false);
   const [saveMessage, setSaveMessage] = useState('');
   const [saveError, setSaveError] = useState('');
+  const [compareMessage, setCompareMessage] = useState('');
+
+  const handleCompare = product => {
+    const compareResult = toggleCompareProduct(product);
+    setCompareMessage(
+      compareResult.ok
+        ? compareResult.selected
+          ? `Đã thêm ${product.name} vào danh sách so sánh.`
+          : `Đã bỏ ${product.name} khỏi danh sách so sánh.`
+        : compareResult.message
+    );
+  };
 
   const products = useMemo(() => {
     const source = result?.products || [];
@@ -203,6 +221,15 @@ export default function Recommendations() {
             </p>
           </div>
           <div className="flex flex-wrap gap-sm">
+            {compareCount > 0 && (
+              <Link
+                to="/compare"
+                className="inline-flex items-center justify-center gap-2 rounded-xl border border-secondary px-5 py-2.5 text-secondary font-bold hover:bg-secondary hover:text-white"
+              >
+                <span className="material-symbols-outlined">compare_arrows</span>
+                So sánh ({compareCount})
+              </Link>
+            )}
             {savedProfileId ? (
               <Link
                 to="/dashboard"
@@ -244,6 +271,11 @@ export default function Recommendations() {
         {saveError && (
           <div className="mt-md rounded-xl bg-error-container px-4 py-3 text-error">
             {saveError}
+          </div>
+        )}
+        {compareMessage && (
+          <div className="mt-md rounded-xl bg-secondary-fixed/40 border border-secondary-fixed px-4 py-3 text-secondary">
+            {compareMessage}
           </div>
         )}
 
@@ -381,6 +413,7 @@ export default function Recommendations() {
                   matchPercentage: Math.round(product.matchScore * 100),
                 };
                 const favorite = isFavorite(product.productId);
+                const compareSelected = isCompareSelected(product.productId);
                 return (
                   <article
                     key={product.productId}
@@ -425,6 +458,25 @@ export default function Recommendations() {
                       </p>
                       <div className="font-headline-lg text-[22px] font-semibold text-primary-container mt-auto pt-md">
                         {formatPrice(product.price)}
+                      </div>
+                      <div className="mt-4 grid grid-cols-2 gap-2">
+                        <Link
+                          to={`/products/${product.productId}`}
+                          className="rounded-lg border border-primary px-3 py-2 text-center text-label-sm font-bold text-primary hover:bg-primary hover:text-white"
+                        >
+                          Chi tiết
+                        </Link>
+                        <button
+                          type="button"
+                          onClick={() => handleCompare(product)}
+                          className={`rounded-lg border px-3 py-2 text-label-sm font-bold ${
+                            compareSelected
+                              ? 'border-secondary bg-secondary text-white'
+                              : 'border-secondary text-secondary hover:bg-secondary hover:text-white'
+                          }`}
+                        >
+                          {compareSelected ? 'Đã chọn' : 'So sánh'}
+                        </button>
                       </div>
                     </div>
                   </article>

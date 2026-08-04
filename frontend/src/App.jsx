@@ -16,6 +16,8 @@ import Favorites from './pages/Favorites';
 import History from './pages/History';
 import Home from './pages/Home';
 import ProfilePage from './pages/ProfilePage';
+import ProductCompare from './pages/ProductCompare';
+import ProductDetail from './pages/ProductDetail';
 import Recommendations from './pages/Recommendations';
 import StoreProductsPage from './pages/StoreProductsPage';
 import StoreProfilePage from './pages/StoreProfilePage';
@@ -64,6 +66,8 @@ function AppLayout({ children }) {
     || location.pathname === '/add-profile'
     || location.pathname.startsWith('/edit-profile/');
   const isHistoryActive = location.pathname === '/history';
+  const isCompareActive = location.pathname === '/compare';
+  const role = localStorage.getItem('role');
 
   return (
     <div className="bg-background text-on-surface font-sans antialiased selection:bg-primary-container selection:text-white min-h-screen flex flex-col">
@@ -117,6 +121,16 @@ function AppLayout({ children }) {
                   Lịch sử
                 </Link>
               </li>
+              {role === 'CUSTOMER' && (
+                <li>
+                  <Link
+                    className={navItemClass(isCompareActive)}
+                    to="/compare"
+                  >
+                    So sánh
+                  </Link>
+                </li>
+              )}
               {localStorage.getItem('role') === 'ADMIN' && (
                 <li>
                   <Link
@@ -221,12 +235,22 @@ function AppLayout({ children }) {
   );
 }
 
-function ProtectedRoute({ children }) {
-  const isAuthenticated = localStorage.getItem('token')
-    || localStorage.getItem('fullName');
-  return isAuthenticated
-    ? children
-    : <Navigate to="/login" replace />;
+function defaultRouteForRole(role) {
+  if (role === 'ADMIN') return '/admin';
+  if (role === 'STORE') return '/store-products';
+  return '/home';
+}
+
+function ProtectedRoute({ children, allowedRoles }) {
+  const token = localStorage.getItem('token');
+  const role = localStorage.getItem('role');
+  if (!token) {
+    return <Navigate to="/login" replace />;
+  }
+  if (allowedRoles && !allowedRoles.includes(role)) {
+    return <Navigate to={defaultRouteForRole(role)} replace />;
+  }
+  return children;
 }
 
 function App() {
@@ -235,21 +259,24 @@ function App() {
       <AppLayout>
         <Routes>
           <Route path="/" element={<Home />} />
-          <Route path="/home" element={<ProtectedRoute><UserHome /></ProtectedRoute>} />
+          <Route path="/home" element={<ProtectedRoute allowedRoles={['CUSTOMER']}><UserHome /></ProtectedRoute>} />
           <Route path="/login" element={<AuthPage />} />
           <Route path="/register" element={<AuthPage />} />
-          <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-          <Route path="/recommendations" element={<ProtectedRoute><Recommendations /></ProtectedRoute>} />
-          <Route path="/favorites" element={<ProtectedRoute><Favorites /></ProtectedRoute>} />
-          <Route path="/add-profile" element={<ProtectedRoute><AddRecipientProfile /></ProtectedRoute>} />
-          <Route path="/edit-profile/:id" element={<ProtectedRoute><AddRecipientProfile /></ProtectedRoute>} />
-          <Route path="/survey" element={<ProtectedRoute><SurveyPage /></ProtectedRoute>} />
-          <Route path="/history" element={<ProtectedRoute><History /></ProtectedRoute>} />
+          <Route path="/dashboard" element={<ProtectedRoute allowedRoles={['CUSTOMER']}><Dashboard /></ProtectedRoute>} />
+          <Route path="/recommendations" element={<ProtectedRoute allowedRoles={['CUSTOMER']}><Recommendations /></ProtectedRoute>} />
+          <Route path="/favorites" element={<ProtectedRoute allowedRoles={['CUSTOMER']}><Favorites /></ProtectedRoute>} />
+          <Route path="/add-profile" element={<ProtectedRoute allowedRoles={['CUSTOMER']}><AddRecipientProfile /></ProtectedRoute>} />
+          <Route path="/edit-profile/:id" element={<ProtectedRoute allowedRoles={['CUSTOMER']}><AddRecipientProfile /></ProtectedRoute>} />
+          <Route path="/survey" element={<ProtectedRoute allowedRoles={['CUSTOMER']}><SurveyPage /></ProtectedRoute>} />
+          <Route path="/history" element={<ProtectedRoute allowedRoles={['CUSTOMER']}><History /></ProtectedRoute>} />
           <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
-          <Route path="/store-profile" element={<ProtectedRoute><StoreProfilePage /></ProtectedRoute>} />
-          <Route path="/store-products" element={<ProtectedRoute><StoreProductsPage /></ProtectedRoute>} />
-          <Route path="/admin" element={<ProtectedRoute><AdminPage /></ProtectedRoute>} />
-          <Route path="/admin/ai" element={<ProtectedRoute><AiManagement /></ProtectedRoute>} />
+          <Route path="/products/:productId" element={<ProtectedRoute><ProductDetail /></ProtectedRoute>} />
+          <Route path="/compare" element={<ProtectedRoute allowedRoles={['CUSTOMER']}><ProductCompare /></ProtectedRoute>} />
+          <Route path="/store-profile" element={<ProtectedRoute allowedRoles={['STORE', 'ADMIN']}><StoreProfilePage /></ProtectedRoute>} />
+          <Route path="/store-products" element={<ProtectedRoute allowedRoles={['STORE', 'ADMIN']}><StoreProductsPage /></ProtectedRoute>} />
+          <Route path="/admin" element={<ProtectedRoute allowedRoles={['ADMIN']}><AdminPage /></ProtectedRoute>} />
+          <Route path="/admin/ai" element={<ProtectedRoute allowedRoles={['ADMIN']}><AiManagement /></ProtectedRoute>} />
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </AppLayout>
     </BrowserRouter>
