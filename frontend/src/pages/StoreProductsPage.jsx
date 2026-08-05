@@ -27,7 +27,7 @@ export default function StoreProductsPage() {
 
   const fetchProducts = async () => {
     try {
-      const res = await api.get('/products');
+      const res = await api.get('/products/store/me');
       // For UI compatibility, map fields
       const mapped = res.data.map(p => ({
         id: p.productId, // Adjusting ID field

@@ -4,6 +4,7 @@ import com.giftmatch.backend.dto.ProductRequest;
 import com.giftmatch.backend.dto.ProductResponse;
 import com.giftmatch.backend.entity.GiftLabel;
 import com.giftmatch.backend.entity.Product;
+import com.giftmatch.backend.entity.Role;
 import com.giftmatch.backend.entity.User;
 import com.giftmatch.backend.repository.CategoryRepository;
 import com.giftmatch.backend.repository.GiftLabelRepository;
@@ -33,7 +34,21 @@ public class ProductController {
     @Transactional(readOnly = true)
     public ResponseEntity<List<ProductResponse>> getAllProducts() {
         return ResponseEntity.ok(
-                productRepository.findAll()
+                productRepository.findByStatus("APPROVED")
+                        .stream()
+                        .map(ProductResponse::from)
+                        .toList()
+        );
+    }
+
+    @GetMapping("/store/me")
+    @Transactional(readOnly = true)
+    public ResponseEntity<List<ProductResponse>> getCurrentStoreProducts(
+            @AuthenticationPrincipal UserDetailsImpl userDetails
+    ) {
+        requireStoreOrAdmin(userDetails);
+        return ResponseEntity.ok(
+                productRepository.findByStore_UserId(userDetails.getUser().getUserId())
                         .stream()
                         .map(ProductResponse::from)
                         .toList()
@@ -96,6 +111,7 @@ public class ProductController {
             @RequestBody ProductRequest request,
             @AuthenticationPrincipal UserDetailsImpl userDetails
     ) {
+        requireStoreOrAdmin(userDetails);
         User store = userDetails.getUser();
         GiftLabel giftLabel = getGiftLabel(request.getAiGiftName());
         
@@ -125,9 +141,9 @@ public class ProductController {
             @PathVariable Long id,
             @AuthenticationPrincipal UserDetailsImpl userDetails
     ) {
-        // In a real app, verify the product belongs to the store
-        productRepository.deleteById(id);
-        return ResponseEntity.ok().build();
+        Product product = getOwnedProductOrAdmin(id, userDetails);
+        productRepository.delete(product);
+        return ResponseEntity.noContent().build();
     }
 
     @PutMapping("/{id}")
@@ -137,9 +153,8 @@ public class ProductController {
             @RequestBody ProductRequest request,
             @AuthenticationPrincipal UserDetailsImpl userDetails
     ) {
-        Product product = productRepository.findById(id).orElseThrow();
+        Product product = getOwnedProductOrAdmin(id, userDetails);
         GiftLabel giftLabel = getGiftLabel(request.getAiGiftName());
-        // In a real app, verify the product belongs to the store
         
         product.setName(request.getName());
         product.setDescription(request.getDescription());
@@ -151,6 +166,11 @@ public class ProductController {
         
         if (request.getCategoryId() != null) {
             categoryRepository.findById(request.getCategoryId()).ifPresent(product::setCategory);
+        }
+
+        if (!isAdmin(userDetails)) {
+            product.setStatus("PENDING");
+            product.setRejectionReason(null);
         }
 
         return ResponseEntity.ok(
@@ -186,5 +206,40 @@ public class ProductController {
                 .orElseThrow(() -> new IllegalArgumentException(
                         "Nhãn quà AI không tồn tại hoặc đã ngừng sử dụng."
                 ));
+    }
+
+    private Product getOwnedProductOrAdmin(Long productId, UserDetailsImpl userDetails) {
+        requireStoreOrAdmin(userDetails);
+        Product product = productRepository.findById(productId)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "Khong tim thay san pham."
+                ));
+        if (!isAdmin(userDetails) && !isOwner(product, userDetails)) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "Khong co quyen thay doi san pham cua cua hang khac."
+            );
+        }
+        return product;
+    }
+
+    private void requireStoreOrAdmin(UserDetailsImpl userDetails) {
+        Role role = userDetails.getUser().getRole();
+        if (role != Role.STORE && role != Role.ADMIN) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "Chuc nang chi danh cho Store hoac Admin."
+            );
+        }
+    }
+
+    private boolean isAdmin(UserDetailsImpl userDetails) {
+        return userDetails.getUser().getRole() == Role.ADMIN;
+    }
+
+    private boolean isOwner(Product product, UserDetailsImpl userDetails) {
+        return product.getStore() != null
+                && product.getStore().getUserId().equals(userDetails.getUser().getUserId());
     }
 }
