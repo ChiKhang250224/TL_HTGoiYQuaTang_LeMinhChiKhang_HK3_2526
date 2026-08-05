@@ -55,6 +55,10 @@ public class Product {
     @Builder.Default
     private String status = "PENDING"; // PENDING, APPROVED, REJECTED
 
+    @Column(nullable = false, length = 20)
+    @Builder.Default
+    private String businessStatus = "IN_STOCK";
+
     @Column(columnDefinition = "TEXT")
     private String rejectionReason;
 

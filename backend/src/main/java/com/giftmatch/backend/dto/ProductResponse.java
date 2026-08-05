@@ -18,6 +18,7 @@ public class ProductResponse {
     private String giftType;
     private String aiGiftName;
     private String status;
+    private String businessStatus;
     private String rejectionReason;
     private Boolean isTopSelling;
     private Integer viewCount;
@@ -44,6 +45,7 @@ public class ProductResponse {
                 .giftType(product.getGiftType())
                 .aiGiftName(product.getAiGiftName())
                 .status(product.getStatus())
+                .businessStatus(product.getBusinessStatus())
                 .rejectionReason(product.getRejectionReason())
                 .isTopSelling(product.getIsTopSelling())
                 .viewCount(product.getViewCount())

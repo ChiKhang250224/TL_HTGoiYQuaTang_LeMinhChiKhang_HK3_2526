@@ -2,6 +2,7 @@ package com.giftmatch.backend.controller;
 
 import com.giftmatch.backend.dto.ProductRequest;
 import com.giftmatch.backend.dto.ProductResponse;
+import com.giftmatch.backend.dto.ProductBusinessStatusRequest;
 import com.giftmatch.backend.entity.GiftLabel;
 import com.giftmatch.backend.entity.Product;
 import com.giftmatch.backend.entity.Role;
@@ -18,6 +19,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.bind.annotation.*;
+import jakarta.validation.Valid;
 
 import java.util.List;
 
@@ -34,7 +36,7 @@ public class ProductController {
     @Transactional(readOnly = true)
     public ResponseEntity<List<ProductResponse>> getAllProducts() {
         return ResponseEntity.ok(
-                productRepository.findByStatus("APPROVED")
+                productRepository.findByStatusAndBusinessStatus("APPROVED", "IN_STOCK")
                         .stream()
                         .map(ProductResponse::from)
                         .toList()
@@ -95,6 +97,9 @@ public class ProductController {
                     HttpStatus.NOT_FOUND,
                     "Sản phẩm chưa sẵn sàng để hiển thị."
             );
+        }
+        if (!"IN_STOCK".equals(product.getBusinessStatus()) && !isAdmin && !isOwner) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "San pham hien khong kha dung.");
         }
 
         if ("APPROVED".equals(product.getStatus()) && !isAdmin && !isOwner) {
@@ -176,6 +181,22 @@ public class ProductController {
         return ResponseEntity.ok(
                 ProductResponse.from(productRepository.save(product))
         );
+    }
+
+    @PatchMapping("/{id}/business-status")
+    @Transactional
+    public ResponseEntity<ProductResponse> updateBusinessStatus(
+            @PathVariable Long id,
+            @Valid @RequestBody ProductBusinessStatusRequest request,
+            @AuthenticationPrincipal UserDetailsImpl userDetails
+    ) {
+        Product product = getOwnedProductOrAdmin(id, userDetails);
+        String status = request.getBusinessStatus().trim().toUpperCase();
+        if (!List.of("IN_STOCK", "OUT_OF_STOCK", "HIDDEN", "DISCONTINUED").contains(status)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Trang thai kinh doanh khong hop le.");
+        }
+        product.setBusinessStatus(status);
+        return ResponseEntity.ok(ProductResponse.from(productRepository.save(product)));
     }
 
     @GetMapping("/search")

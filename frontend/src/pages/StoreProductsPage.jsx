@@ -3,6 +3,13 @@ import { Link } from 'react-router-dom';
 import api from '../utils/api';
 import { GIFT_NAME_LABELS, GIFT_TAXONOMY } from '../constants/giftTaxonomy';
 
+const BUSINESS_STATUS_LABELS = {
+  IN_STOCK: 'Còn hàng',
+  OUT_OF_STOCK: 'Hết hàng',
+  HIDDEN: 'Tạm ẩn',
+  DISCONTINUED: 'Ngừng kinh doanh',
+};
+
 export default function StoreProductsPage() {
   const userName = localStorage.getItem('fullName') || 'Quản lý';
   const userAvatar = localStorage.getItem('avatar');
@@ -38,6 +45,7 @@ export default function StoreProductsPage() {
         description: p.description || '',
         giftType: p.giftType || '',
         aiGiftName: p.aiGiftName || '',
+        businessStatus: p.businessStatus || 'IN_STOCK',
         status: p.status === 'PENDING' ? 'Chờ duyệt' : (p.status === 'APPROVED' ? 'Đã duyệt' : 'Bị từ chối'),
         statusBg: p.status === 'PENDING' ? 'bg-[#FEF3C7] text-[#D97706] border-[#FCD34D]' : (p.status === 'APPROVED' ? 'bg-tertiary-container/10 text-tertiary-container border-tertiary-container/20' : 'bg-error-container text-error border-error/20'),
         aiCount: 0,
@@ -63,6 +71,18 @@ export default function StoreProductsPage() {
       } catch (error) {
         console.error("Lỗi khi xóa", error);
       }
+    }
+  };
+
+  const handleBusinessStatus = async (id, businessStatus) => {
+    try {
+      const response = await api.patch(`/products/${id}/business-status`, { businessStatus });
+      setProducts(current => current.map(product => (
+        product.id === id ? { ...product, businessStatus: response.data.businessStatus } : product
+      )));
+    } catch (error) {
+      console.error('Không thể cập nhật trạng thái kinh doanh', error);
+      alert(error.response?.data?.message || 'Không thể cập nhật trạng thái kinh doanh.');
     }
   };
 
@@ -262,6 +282,7 @@ export default function StoreProductsPage() {
                     <th className="px-6 py-4 font-semibold whitespace-nowrap">Giá</th>
                     <th className="px-6 py-4 font-semibold whitespace-nowrap">Loại quà</th>
                     <th className="px-6 py-4 font-semibold whitespace-nowrap">Trạng thái</th>
+                    <th className="px-6 py-4 font-semibold whitespace-nowrap">Kinh doanh</th>
                     <th className="px-6 py-4 font-semibold whitespace-nowrap">
                       <div className="flex items-center gap-1 text-secondary">
                         <span className="material-symbols-outlined text-[18px]">psychology</span>
@@ -286,6 +307,18 @@ export default function StoreProductsPage() {
                       </td>
                       <td className="px-6 py-4">
                         <span className={`px-3 py-1 rounded-full font-label-sm border font-medium ${product.statusBg}`}>{product.status}</span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <select
+                          value={product.businessStatus}
+                          onChange={event => handleBusinessStatus(product.id, event.target.value)}
+                          className="min-w-[150px] rounded-lg border border-outline-variant bg-white px-3 py-2 text-sm focus:border-primary focus:outline-none"
+                          aria-label={`Trạng thái kinh doanh của ${product.name}`}
+                        >
+                          {Object.entries(BUSINESS_STATUS_LABELS).map(([value, label]) => (
+                            <option key={value} value={value}>{label}</option>
+                          ))}
+                        </select>
                       </td>
                       <td className="px-6 py-4">
                         <div className="bg-gradient-to-r from-primary-container to-secondary-container text-white px-3 py-1 rounded-lg font-bold text-sm shadow-sm inline-block">{product.aiCount}</div>

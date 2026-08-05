@@ -105,8 +105,8 @@ public class RecommendationService {
 
         BigDecimal maxPrice = request.getBudget().multiply(MODEL_BUDGET_TO_VND);
         List<Product> availableProducts =
-                productRepository.findByStatusAndPriceLessThanEqualOrderByRecommendCountDesc(
-                        "APPROVED", maxPrice
+                productRepository.findByStatusAndBusinessStatusAndPriceLessThanEqualOrderByRecommendCountDesc(
+                        "APPROVED", "IN_STOCK", maxPrice
                 );
 
         List<RecommendationResponse.ProductRecommendation> rankedProducts =
