@@ -12,6 +12,7 @@ import java.math.BigDecimal;
 public interface ProductRepository extends JpaRepository<Product, Long> {
     List<Product> findByStore_UserId(Long storeId);
     List<Product> findByStatus(String status);
+    List<Product> findByStatusOrderByCreatedAtAsc(String status);
     List<Product> findByStatusAndPriceLessThanEqualOrderByRecommendCountDesc(
             String status, BigDecimal maxPrice
     );

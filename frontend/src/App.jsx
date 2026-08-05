@@ -9,6 +9,7 @@ import {
 } from 'react-router-dom';
 import AddRecipientProfile from './pages/AddRecipientProfile';
 import AdminPage from './pages/AdminPage';
+import AdminProductsPage from './pages/AdminProductsPage';
 import AiManagement from './pages/AiManagement';
 import AuthPage from './pages/AuthPage';
 import Dashboard from './pages/Dashboard';
@@ -275,6 +276,7 @@ function App() {
           <Route path="/store-profile" element={<ProtectedRoute allowedRoles={['STORE', 'ADMIN']}><StoreProfilePage /></ProtectedRoute>} />
           <Route path="/store-products" element={<ProtectedRoute allowedRoles={['STORE', 'ADMIN']}><StoreProductsPage /></ProtectedRoute>} />
           <Route path="/admin" element={<ProtectedRoute allowedRoles={['ADMIN']}><AdminPage /></ProtectedRoute>} />
+          <Route path="/admin/products" element={<ProtectedRoute allowedRoles={['ADMIN']}><AdminProductsPage /></ProtectedRoute>} />
           <Route path="/admin/ai" element={<ProtectedRoute allowedRoles={['ADMIN']}><AiManagement /></ProtectedRoute>} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

@@ -2,6 +2,7 @@ package com.giftmatch.backend.controller;
 
 import com.giftmatch.backend.dto.ProductLabelRequest;
 import com.giftmatch.backend.dto.ProductLabelItem;
+import com.giftmatch.backend.dto.ProductRejectionRequest;
 import com.giftmatch.backend.entity.GiftLabel;
 import com.giftmatch.backend.entity.Product;
 import com.giftmatch.backend.repository.GiftLabelRepository;
@@ -15,6 +16,9 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 import java.util.Map;
@@ -51,6 +55,17 @@ public class AdminProductController {
         );
     }
 
+    @GetMapping("/pending")
+    @Transactional(readOnly = true)
+    public ResponseEntity<List<ProductLabelItem>> getPendingProducts() {
+        return ResponseEntity.ok(
+                productRepository.findByStatusOrderByCreatedAtAsc("PENDING")
+                        .stream()
+                        .map(ProductLabelItem::from)
+                        .toList()
+        );
+    }
+
     @PutMapping("/{productId}/label")
     public ResponseEntity<ProductLabelItem> labelProduct(
             @PathVariable Long productId,
@@ -73,5 +88,42 @@ public class AdminProductController {
             product.setStatus(status);
         }
         return ResponseEntity.ok(ProductLabelItem.from(productRepository.save(product)));
+    }
+
+    @PutMapping("/{productId}/approve")
+    @Transactional
+    public ResponseEntity<ProductLabelItem> approveProduct(@PathVariable Long productId) {
+        Product product = findProduct(productId);
+        if (product.getGiftLabel() == null
+                || product.getAiGiftName() == null
+                || product.getAiGiftName().isBlank()) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "San pham can duoc gan nhan AI truoc khi phe duyet."
+            );
+        }
+        product.setStatus("APPROVED");
+        product.setRejectionReason(null);
+        return ResponseEntity.ok(ProductLabelItem.from(productRepository.save(product)));
+    }
+
+    @PutMapping("/{productId}/reject")
+    @Transactional
+    public ResponseEntity<ProductLabelItem> rejectProduct(
+            @PathVariable Long productId,
+            @Valid @RequestBody ProductRejectionRequest request
+    ) {
+        Product product = findProduct(productId);
+        product.setStatus("REJECTED");
+        product.setRejectionReason(request.getReason().trim());
+        return ResponseEntity.ok(ProductLabelItem.from(productRepository.save(product)));
+    }
+
+    private Product findProduct(Long productId) {
+        return productRepository.findById(productId)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "Khong tim thay san pham."
+                ));
     }
 }
