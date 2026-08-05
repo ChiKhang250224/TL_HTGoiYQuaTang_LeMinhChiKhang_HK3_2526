@@ -3,11 +3,26 @@ import { Link, useParams } from 'react-router-dom';
 import api from '../utils/api';
 import useCompareProducts from '../hooks/useCompareProducts';
 import useFavorites from '../hooks/useFavorites';
+import FavoriteButton from '../components/FavoriteButton';
 
 const FALLBACK_IMAGE =
   'https://images.unsplash.com/photo-1549465220-1a8b9238cd48?auto=format&fit=crop&w=1000&q=80';
 
 const formatPrice = value => `${Number(value || 0).toLocaleString('vi-VN')} ₫`;
+
+const REPORT_REASONS = [
+  ['MISLEADING_INFO', 'Thông tin gây hiểu nhầm'],
+  ['INAPPROPRIATE_CONTENT', 'Nội dung không phù hợp'],
+  ['WRONG_PRICE', 'Giá hiển thị không chính xác'],
+  ['COUNTERFEIT_SUSPECTED', 'Nghi ngờ hàng giả'],
+  ['OTHER', 'Lý do khác'],
+];
+
+const REPORT_STATUS_LABELS = {
+  PENDING: 'Đang chờ xử lý',
+  RESOLVED: 'Đã xử lý',
+  REJECTED: 'Không chấp nhận',
+};
 
 export default function ProductDetail() {
   const { productId } = useParams();
@@ -15,8 +30,15 @@ export default function ProductDetail() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [compareMessage, setCompareMessage] = useState('');
+  const [reportOpen, setReportOpen] = useState(false);
+  const [reportReason, setReportReason] = useState('MISLEADING_INFO');
+  const [reportDescription, setReportDescription] = useState('');
+  const [reportSending, setReportSending] = useState(false);
+  const [reportMessage, setReportMessage] = useState({ type: '', text: '' });
+  const [latestReport, setLatestReport] = useState(null);
   const { count, isSelected, toggleProduct } = useCompareProducts();
   const { isFavorite, toggleFavorite, error: favoriteError } = useFavorites();
+  const isCustomer = localStorage.getItem('role') === 'CUSTOMER';
 
   useEffect(() => {
     let active = true;
@@ -39,6 +61,19 @@ export default function ProductDetail() {
     };
   }, [productId]);
 
+  useEffect(() => {
+    if (!isCustomer) return undefined;
+    let active = true;
+    api.get('/product-reports/me')
+      .then(response => {
+        if (!active) return;
+        const report = response.data.find(item => Number(item.productId) === Number(productId));
+        setLatestReport(report || null);
+      })
+      .catch(() => {});
+    return () => { active = false; };
+  }, [isCustomer, productId]);
+
   const handleCompare = () => {
     const result = toggleProduct(product);
     setCompareMessage(
@@ -48,6 +83,29 @@ export default function ProductDetail() {
           : 'Đã bỏ sản phẩm khỏi danh sách so sánh.'
         : result.message
     );
+  };
+
+  const submitReport = async event => {
+    event.preventDefault();
+    setReportSending(true);
+    setReportMessage({ type: '', text: '' });
+    try {
+      const response = await api.post(`/product-reports/${product.productId}`, {
+        reason: reportReason,
+        description: reportDescription.trim() || null,
+      });
+      setLatestReport(response.data);
+      setReportDescription('');
+      setReportOpen(false);
+      setReportMessage({ type: 'success', text: 'Báo cáo đã được tiếp nhận và chuyển tới quản trị viên.' });
+    } catch (requestError) {
+      setReportMessage({
+        type: 'error',
+        text: requestError.response?.data?.message || 'Không thể gửi báo cáo sản phẩm.',
+      });
+    } finally {
+      setReportSending(false);
+    }
   };
 
   if (loading) {
@@ -123,17 +181,7 @@ export default function ProductDetail() {
           </div>
 
           <div className="mt-auto pt-8 flex flex-wrap gap-3">
-            <button
-              type="button"
-              onClick={() => toggleFavorite(product)}
-              className={`rounded-xl border-2 px-5 py-3 font-bold transition-colors ${
-                favorite
-                  ? 'border-error bg-error-container text-error'
-                  : 'border-primary text-primary hover:bg-primary hover:text-white'
-              }`}
-            >
-              {favorite ? 'Đã yêu thích' : 'Thêm vào yêu thích'}
-            </button>
+            <FavoriteButton favorite={favorite} onClick={() => toggleFavorite(product)} />
             <button
               type="button"
               onClick={handleCompare}
@@ -153,12 +201,72 @@ export default function ProductDetail() {
             <Link to="/survey" className="rounded-xl bg-primary-container px-5 py-3 text-white font-bold">
               Tìm quà tương tự
             </Link>
+            {isCustomer && (
+              <button
+                type="button"
+                onClick={() => setReportOpen(current => !current)}
+                className="rounded-xl px-5 py-3 font-bold text-error hover:bg-error-container transition-colors"
+              >
+                Báo cáo sản phẩm
+              </button>
+            )}
           </div>
           {compareMessage && (
             <p className="mt-3 text-label-md text-on-surface-variant">{compareMessage}</p>
           )}
           {favoriteError && (
             <p className="mt-3 text-label-md text-error">{favoriteError}</p>
+          )}
+          {reportMessage.text && (
+            <p className={`mt-3 rounded-xl px-4 py-3 text-label-md ${
+              reportMessage.type === 'success'
+                ? 'bg-green-50 text-green-800'
+                : 'bg-error-container text-error'
+            }`}>
+              {reportMessage.text}
+            </p>
+          )}
+          {latestReport && (
+            <div className="mt-4 rounded-xl border border-outline-variant bg-surface-container-low p-4 text-sm">
+              <p className="font-bold">Báo cáo gần nhất: {REPORT_STATUS_LABELS[latestReport.status] || latestReport.status}</p>
+              {latestReport.resolutionNote && (
+                <p className="mt-1 break-words text-on-surface-variant">Kết quả: {latestReport.resolutionNote}</p>
+              )}
+            </div>
+          )}
+          {reportOpen && (
+            <form onSubmit={submitReport} className="mt-4 min-w-0 rounded-2xl border border-error/20 bg-error-container/30 p-4 sm:p-5">
+              <h3 className="font-bold text-lg">Báo cáo nội dung sản phẩm</h3>
+              <label className="mt-4 block text-sm font-bold" htmlFor="report-reason">Lý do</label>
+              <select
+                id="report-reason"
+                value={reportReason}
+                onChange={event => setReportReason(event.target.value)}
+                className="mt-2 w-full min-w-0 rounded-xl border border-outline-variant bg-white px-3 py-2.5"
+              >
+                {REPORT_REASONS.map(([value, label]) => (
+                  <option key={value} value={value}>{label}</option>
+                ))}
+              </select>
+              <label className="mt-4 block text-sm font-bold" htmlFor="report-description">Mô tả bổ sung</label>
+              <textarea
+                id="report-description"
+                rows="4"
+                maxLength="1000"
+                value={reportDescription}
+                onChange={event => setReportDescription(event.target.value)}
+                placeholder="Mô tả dấu hiệu hoặc thông tin cần được kiểm tra"
+                className="mt-2 w-full min-w-0 resize-y rounded-xl border border-outline-variant bg-white px-3 py-2.5"
+              />
+              <div className="mt-4 flex flex-col-reverse sm:flex-row sm:justify-end gap-2">
+                <button type="button" onClick={() => setReportOpen(false)} className="rounded-xl border border-outline-variant px-4 py-2.5 font-bold">
+                  Hủy
+                </button>
+                <button disabled={reportSending} type="submit" className="rounded-xl bg-error px-4 py-2.5 font-bold text-white disabled:opacity-50">
+                  {reportSending ? 'Đang gửi...' : 'Gửi báo cáo'}
+                </button>
+              </div>
+            </form>
           )}
         </div>
       </section>

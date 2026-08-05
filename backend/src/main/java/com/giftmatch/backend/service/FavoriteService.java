@@ -49,10 +49,10 @@ public class FavoriteService {
                         HttpStatus.NOT_FOUND,
                         "Khong tim thay san pham."
                 ));
-        if (!"APPROVED".equals(product.getStatus())) {
+        if (!"APPROVED".equals(product.getStatus()) || !"IN_STOCK".equals(product.getBusinessStatus())) {
             throw new ResponseStatusException(
                     HttpStatus.BAD_REQUEST,
-                    "Chi co the luu san pham da duoc phe duyet."
+                    "Chỉ có thể lưu sản phẩm đã được phê duyệt và còn kinh doanh."
             );
         }
         Favorite favorite = Favorite.builder()

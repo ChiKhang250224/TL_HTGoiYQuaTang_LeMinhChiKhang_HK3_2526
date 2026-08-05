@@ -59,6 +59,10 @@ export default function AdminPage() {
             <span className="material-symbols-outlined group-hover:text-primary-fixed transition-colors">inventory</span>
             <span className="font-label-md text-label-md">Kiểm duyệt sản phẩm</span>
           </Link>
+          <Link className="flex items-center gap-3 px-4 py-3 rounded-lg text-surface-variant hover:bg-surface-variant/10 transition-colors group" to="/admin/reports">
+            <span className="material-symbols-outlined group-hover:text-primary-fixed transition-colors">report</span>
+            <span className="font-label-md text-label-md">Báo cáo sản phẩm</span>
+          </Link>
           <Link className="flex items-center gap-3 px-4 py-3 rounded-lg text-surface-variant hover:bg-surface-variant/10 transition-colors group" to="/admin/labels">
             <span className="material-symbols-outlined group-hover:text-primary-fixed transition-colors">label</span>
             <span className="font-label-md text-label-md">Gắn nhãn AI</span>
@@ -202,6 +206,16 @@ export default function AdminPage() {
                   <div>
                     <h4 className="font-title-md font-bold text-on-surface">Duyệt sản phẩm mới</h4>
                     <p className="text-body-sm text-on-surface-variant">Xem và phê duyệt các sản phẩm do Cửa hàng đăng lên.</p>
+                  </div>
+                </Link>
+
+                <Link to="/admin/reports" className="flex items-center gap-4 p-4 rounded-xl border border-outline-variant hover:border-primary hover:bg-primary/5 transition-all group">
+                  <div className="w-12 h-12 rounded-full bg-surface-container flex items-center justify-center text-on-surface group-hover:bg-primary group-hover:text-white transition-colors">
+                    <span className="material-symbols-outlined">report</span>
+                  </div>
+                  <div>
+                    <h4 className="font-title-md font-bold text-on-surface">Xử lý báo cáo sản phẩm</h4>
+                    <p className="text-body-sm text-on-surface-variant">Kiểm tra phản ánh của Customer và cập nhật trạng thái xử lý.</p>
                   </div>
                 </Link>
 

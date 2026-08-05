@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import CustomSelect from '../components/CustomSelect';
 import useFavorites from '../hooks/useFavorites';
+import FavoriteButton from '../components/FavoriteButton';
 import { GIFT_NAME_LABELS, GIFT_TYPE_LABELS } from '../constants/giftTaxonomy';
 import api from '../utils/api';
 import RecommendationFeedback from '../components/RecommendationFeedback';
@@ -408,8 +409,8 @@ export default function Recommendations() {
                   id: product.productId,
                   name: product.name,
                   brand: product.storeName || 'GiftMatch Store',
-                  price: formatPrice(product.price),
-                  image: product.imageUrl || FALLBACK_IMAGE,
+                  price: product.price,
+                  imageUrl: product.imageUrl || FALLBACK_IMAGE,
                   matchPercentage: Math.round(product.matchScore * 100),
                 };
                 const favorite = isFavorite(product.productId);
@@ -425,20 +426,12 @@ export default function Recommendations() {
                         alt={product.name}
                         src={product.imageUrl || FALLBACK_IMAGE}
                       />
-                      <button
+                      <FavoriteButton
+                        favorite={favorite}
                         onClick={() => toggleFavorite(favoriteProduct)}
-                        className={`absolute top-sm right-sm rounded-full p-xs shadow-sm ${
-                          favorite ? 'bg-error-container text-error' : 'bg-white text-outline'
-                        }`}
-                        aria-label={favorite ? 'Bỏ yêu thích' : 'Thêm yêu thích'}
-                      >
-                        <span
-                          className="material-symbols-outlined"
-                          style={{ fontVariationSettings: favorite ? "'FILL' 1" : "'FILL' 0" }}
-                        >
-                          favorite
-                        </span>
-                      </button>
+                        iconOnly
+                        className="absolute right-3 top-3"
+                      />
                       <div className="absolute bottom-sm left-sm bg-secondary text-white px-sm py-1 rounded-full font-label-sm shadow-sm">
                         {Math.round(product.matchScore * 100)}% Hợp gu
                       </div>

@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../utils/api';
+import FavoriteButton from '../components/FavoriteButton';
+import useFavorites from '../hooks/useFavorites';
 
 const FALLBACK_IMAGE =
   'https://images.unsplash.com/photo-1549465220-1a8b9238cd48?auto=format&fit=crop&w=800&q=80';
@@ -66,6 +68,7 @@ export default function UserHome() {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const { isFavorite, toggleFavorite, error: favoriteError } = useFavorites();
 
   useEffect(() => {
     let active = true;
@@ -187,9 +190,9 @@ export default function UserHome() {
         </Link>
       </section>
 
-      {error && (
+      {(error || favoriteError) && (
         <div className="mb-lg rounded-xl bg-error-container px-4 py-3 text-error">
-          {error}
+          {error || favoriteError}
         </div>
       )}
 
@@ -302,6 +305,12 @@ export default function UserHome() {
                       ? 'Bán chạy'
                       : `${product.recommendCount || 0} lượt gợi ý`}
                   </div>
+                  <FavoriteButton
+                    favorite={isFavorite(product.productId)}
+                    onClick={() => toggleFavorite(product)}
+                    iconOnly
+                    className="absolute right-3 top-3"
+                  />
                 </div>
                 <div className="p-5">
                   <p className="text-[12px] text-on-surface-variant font-medium mb-1">

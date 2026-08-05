@@ -10,9 +10,11 @@ import {
 import AddRecipientProfile from './pages/AddRecipientProfile';
 import AdminPage from './pages/AdminPage';
 import AdminProductsPage from './pages/AdminProductsPage';
+import AdminProductReportsPage from './pages/AdminProductReportsPage';
 import AiManagement from './pages/AiManagement';
 import AuthPage from './pages/AuthPage';
 import Dashboard from './pages/Dashboard';
+import ExploreProductsPage from './pages/ExploreProductsPage';
 import Favorites from './pages/Favorites';
 import History from './pages/History';
 import Home from './pages/Home';
@@ -62,7 +64,7 @@ function AppLayout({ children }) {
 
   const isHomeActive = location.pathname === '/'
     || location.pathname === '/home';
-  const isRecommendationsActive = location.pathname === '/recommendations';
+  const isRecommendationsActive = location.pathname === '/explore';
   const isNotebookActive = location.pathname === '/dashboard'
     || location.pathname === '/add-profile'
     || location.pathname.startsWith('/edit-profile/');
@@ -101,7 +103,7 @@ function AppLayout({ children }) {
               <li>
                 <Link
                   className={navItemClass(isRecommendationsActive)}
-                  to="/recommendations"
+                  to="/explore"
                 >
                   Khám phá
                 </Link>
@@ -265,6 +267,7 @@ function App() {
           <Route path="/register" element={<AuthPage />} />
           <Route path="/dashboard" element={<ProtectedRoute allowedRoles={['CUSTOMER']}><Dashboard /></ProtectedRoute>} />
           <Route path="/recommendations" element={<ProtectedRoute allowedRoles={['CUSTOMER']}><Recommendations /></ProtectedRoute>} />
+          <Route path="/explore" element={<ProtectedRoute allowedRoles={['CUSTOMER']}><ExploreProductsPage /></ProtectedRoute>} />
           <Route path="/favorites" element={<ProtectedRoute allowedRoles={['CUSTOMER']}><Favorites /></ProtectedRoute>} />
           <Route path="/add-profile" element={<ProtectedRoute allowedRoles={['CUSTOMER']}><AddRecipientProfile /></ProtectedRoute>} />
           <Route path="/edit-profile/:id" element={<ProtectedRoute allowedRoles={['CUSTOMER']}><AddRecipientProfile /></ProtectedRoute>} />
@@ -277,6 +280,7 @@ function App() {
           <Route path="/store-products" element={<ProtectedRoute allowedRoles={['STORE', 'ADMIN']}><StoreProductsPage /></ProtectedRoute>} />
           <Route path="/admin" element={<ProtectedRoute allowedRoles={['ADMIN']}><AdminPage /></ProtectedRoute>} />
           <Route path="/admin/products" element={<ProtectedRoute allowedRoles={['ADMIN']}><AdminProductsPage /></ProtectedRoute>} />
+          <Route path="/admin/reports" element={<ProtectedRoute allowedRoles={['ADMIN']}><AdminProductReportsPage /></ProtectedRoute>} />
           <Route path="/admin/ai" element={<ProtectedRoute allowedRoles={['ADMIN']}><AiManagement /></ProtectedRoute>} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
