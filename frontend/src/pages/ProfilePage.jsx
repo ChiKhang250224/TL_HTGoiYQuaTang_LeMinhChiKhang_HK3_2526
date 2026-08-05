@@ -1,162 +1,102 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
+import api from '../utils/api';
 
 export default function ProfilePage() {
-  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
-  const [showNewPassword, setShowNewPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [showToast, setShowToast] = useState(false);
-
-  const [fullName, setFullName] = useState('');
-  const [email, setEmail] = useState('');
-  const [avatar, setAvatar] = useState(null);
+  const [form, setForm] = useState({ email: '', fullName: '', phoneNumber: '', avatarUrl: '' });
+  const [password, setPassword] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' });
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [message, setMessage] = useState({ type: '', text: '' });
 
   useEffect(() => {
-    setFullName(localStorage.getItem('fullName') || '');
-    setEmail(localStorage.getItem('email') || '');
-    setAvatar(localStorage.getItem('avatar') || null);
+    api.get('/profile/me').then(response => {
+      setForm({ ...response.data, phoneNumber: response.data.phoneNumber || '', avatarUrl: response.data.avatarUrl || '' });
+    }).catch(error => setMessage({ type: 'error', text: error.response?.data?.message || 'Không thể tải hồ sơ.' }))
+      .finally(() => setLoading(false));
   }, []);
 
-  const handleSave = () => {
-    setShowToast(true);
-    setTimeout(() => setShowToast(false), 3000);
+  const uploadAvatar = async event => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    const data = new FormData();
+    data.append('file', file);
+    try {
+      const response = await api.post('/upload/image', data, { headers: { 'Content-Type': 'multipart/form-data' } });
+      setForm(current => ({ ...current, avatarUrl: response.data.url }));
+    } catch (error) {
+      setMessage({ type: 'error', text: error.response?.data?.message || 'Không thể tải ảnh đại diện.' });
+    } finally { setUploading(false); }
   };
 
+  const save = async event => {
+    event.preventDefault();
+    if (password.newPassword && password.newPassword !== password.confirmPassword) {
+      setMessage({ type: 'error', text: 'Mật khẩu xác nhận không khớp.' }); return;
+    }
+    setSaving(true); setMessage({ type: '', text: '' });
+    try {
+      const response = await api.put('/profile/me', {
+        fullName: form.fullName, phoneNumber: form.phoneNumber, avatarUrl: form.avatarUrl,
+      });
+      if (password.newPassword) {
+        await api.put('/profile/password', { currentPassword: password.currentPassword, newPassword: password.newPassword });
+        setPassword({ currentPassword: '', newPassword: '', confirmPassword: '' });
+      }
+      localStorage.setItem('fullName', response.data.fullName);
+      localStorage.setItem('avatar', response.data.avatarUrl || '');
+      setMessage({ type: 'success', text: 'Đã cập nhật hồ sơ.' });
+    } catch (error) {
+      setMessage({ type: 'error', text: error.response?.data?.message || 'Không thể cập nhật hồ sơ.' });
+    } finally { setSaving(false); }
+  };
+
+  if (loading) return <main className="py-20 text-center">Đang tải hồ sơ...</main>;
+  const inputClass = 'w-full rounded-xl border border-outline-variant bg-white px-4 py-3 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary';
+
   return (
-    <div className="flex-grow w-full max-w-[720px] mx-auto px-gutter md:px-0 py-lg md:py-xl flex flex-col gap-lg animate-fade-in-up">
-      <style>{`
-        .input-wrapper { position: relative; }
-        .input-field {
-            width: 100%; padding: 24px 16px 8px; border: 1px solid transparent; border-radius: 12px;
-            background-color: theme('colors.surface-container'); transition: all 0.2s ease;
-        }
-        .input-field:focus {
-            outline: none; border-color: theme('colors.secondary-container');
-            background-color: theme('colors.surface-container-lowest');
-            box-shadow: 0 0 0 4px rgba(111, 95, 234, 0.1);
-        }
-        .input-label {
-            position: absolute; top: 16px; left: 16px; color: theme('colors.on-surface-variant');
-            transition: all 0.2s ease; pointer-events: none; transform-origin: left top;
-        }
-        .input-field:focus + .input-label, .input-field:not(:placeholder-shown) + .input-label {
-            transform: translateY(-10px) scale(0.85); color: theme('colors.secondary-container');
-        }
-        .input-field:read-only + .input-label {
-            transform: translateY(-10px) scale(0.85); color: theme('colors.on-surface-variant');
-        }
-        .input-field:read-only {
-            background-color: theme('colors.surface-container-high'); cursor: not-allowed; color: theme('colors.on-surface-variant');
-        }
-        .password-toggle {
-            position: absolute; right: 16px; top: 50%; transform: translateY(-50%);
-            color: theme('colors.on-surface-variant'); background: none; border: none;
-            cursor: pointer; padding: 4px; border-radius: 50%; display: flex; align-items: center; justify-content: center; transition: background-color 0.2s ease;
-        }
-        .password-toggle:hover { background-color: theme('colors.surface-variant'); color: theme('colors.on-surface'); }
-      `}</style>
+    <main className="flex-grow w-full max-w-3xl mx-auto px-4 sm:px-6 py-6 md:py-10 overflow-x-hidden">
+      <nav className="mb-5 text-sm text-on-surface-variant"><Link to="/home" className="hover:text-primary">Trang chủ</Link> / Hồ sơ</nav>
+      <h1 className="text-3xl sm:text-4xl font-bold">Hồ sơ cá nhân</h1>
+      <p className="mt-2 text-on-surface-variant">Thông tin được đồng bộ trực tiếp với tài khoản GiftMatch.</p>
 
-      {/* Header & Breadcrumb */}
-      <div className="flex flex-col gap-sm">
-        <nav aria-label="Breadcrumb" className="flex items-center gap-xs text-on-surface-variant font-label-sm text-label-sm">
-          <Link to="/" className="hover:text-primary transition-colors">Trang chủ</Link>
-          <span className="material-symbols-outlined text-[16px]">chevron_right</span>
-          <span className="text-on-surface">Tài khoản của tôi</span>
-        </nav>
-        <div>
-          <h1 className="font-display-lg text-display-lg text-on-surface mb-xs">Hồ sơ cá nhân</h1>
-          <p className="font-body-lg text-body-lg text-on-surface-variant">Cập nhật thông tin cá nhân của bạn</p>
+      <form onSubmit={save} className="mt-7 rounded-3xl border border-outline-variant bg-white p-5 sm:p-8 shadow-sm space-y-6">
+        <div className="flex flex-col sm:flex-row items-center gap-5">
+          <div className="h-24 w-24 shrink-0 rounded-full overflow-hidden bg-surface-container flex items-center justify-center text-3xl font-bold text-primary">
+            {form.avatarUrl ? <img src={form.avatarUrl} alt="Ảnh đại diện" className="h-full w-full object-cover" /> : form.fullName?.charAt(0).toUpperCase()}
+          </div>
+          <div className="text-center sm:text-left min-w-0">
+            <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl border border-primary px-4 py-2 font-bold text-primary hover:bg-primary hover:text-white">
+              <span className="material-symbols-outlined">photo_camera</span>{uploading ? 'Đang tải...' : 'Chọn ảnh đại diện'}
+              <input type="file" accept="image/*" onChange={uploadAvatar} className="hidden" disabled={uploading} />
+            </label>
+            <p className="mt-2 text-sm text-on-surface-variant break-all">{form.email}</p>
+          </div>
         </div>
-      </div>
 
-      {/* Avatar Section */}
-      <div className="flex flex-col items-center justify-center gap-sm mt-md">
-        <div className="relative group">
-          {avatar && avatar !== 'null' && avatar.startsWith('http') ? (
-            <img src={avatar} alt="Avatar" referrerPolicy="no-referrer" className="w-[100px] h-[100px] rounded-full object-cover border border-outline-variant shadow-sm" />
-          ) : (
-            <div className="w-[100px] h-[100px] rounded-full bg-surface-container-high flex items-center justify-center text-primary text-[40px] font-bold shadow-sm overflow-hidden">
-              {fullName ? fullName.charAt(0).toUpperCase() : 'U'}
-            </div>
-          )}
-          <button aria-label="Thay đổi ảnh đại diện" className="absolute bottom-0 right-0 w-8 h-8 rounded-full bg-surface-container-lowest border border-outline-variant shadow-sm flex items-center justify-center text-on-surface hover:text-primary hover:border-primary transition-colors">
-            <span className="material-symbols-outlined text-[18px]">photo_camera</span>
-          </button>
+        {message.text && <div className={`rounded-xl px-4 py-3 ${message.type === 'success' ? 'bg-green-50 text-green-800' : 'bg-error-container text-error'}`}>{message.text}</div>}
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <label className="min-w-0"><span className="mb-1.5 block font-bold">Họ và tên</span><input required maxLength={100} value={form.fullName} onChange={e => setForm({ ...form, fullName: e.target.value })} className={inputClass} /></label>
+          <label className="min-w-0"><span className="mb-1.5 block font-bold">Số điện thoại</span><input maxLength={20} value={form.phoneNumber} onChange={e => setForm({ ...form, phoneNumber: e.target.value })} className={inputClass} /></label>
         </div>
-        <h2 className="font-title-md text-title-md text-on-surface">{fullName || 'Người dùng GiftMatch'}</h2>
-      </div>
+        <label><span className="mb-1.5 block font-bold">Email</span><input value={form.email} readOnly className={`${inputClass} bg-surface-container text-on-surface-variant`} /></label>
 
-      {/* Form Card */}
-      <div className="bg-surface-container-lowest rounded-[24px] shadow-sm p-md md:p-lg flex flex-col gap-lg border border-surface-container border-opacity-50">
-        <form className="flex flex-col gap-md">
-          {/* Personal Info */}
-          <div className="flex flex-col gap-md">
-            <div className="input-wrapper">
-              <input className="input-field font-body-md text-body-md text-on-surface" id="fullname" placeholder=" " type="text" value={fullName} onChange={(e) => setFullName(e.target.value)} />
-              <label className="input-label font-label-md text-label-md" htmlFor="fullname">Họ và tên</label>
-            </div>
-            <div className="input-wrapper">
-              <input className="input-field font-body-md text-body-md text-on-surface" id="phone" placeholder=" " type="tel" defaultValue="" />
-              <label className="input-label font-label-md text-label-md" htmlFor="phone">Số điện thoại</label>
-            </div>
-            <div className="input-wrapper relative group">
-              <input className="input-field font-body-md text-body-md" id="email" placeholder=" " readOnly type="email" value={email} />
-              <label className="input-label font-label-md text-label-md" htmlFor="email">Email</label>
-              <div className="absolute right-4 top-[20px] text-on-surface-variant flex items-center justify-center cursor-help" title="Không thể thay đổi email đăng ký">
-                <span className="material-symbols-outlined text-[20px]">lock</span>
-              </div>
+        <div className="border-t border-outline-variant pt-6">
+          <h2 className="text-xl font-bold">Đổi mật khẩu</h2>
+          <p className="mt-1 text-sm text-on-surface-variant">Có thể bỏ trống nếu không thay đổi mật khẩu.</p>
+          <div className="mt-4 grid grid-cols-1 gap-4">
+            <input type="password" placeholder="Mật khẩu hiện tại" value={password.currentPassword} onChange={e => setPassword({ ...password, currentPassword: e.target.value })} className={inputClass} />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <input type="password" minLength={8} placeholder="Mật khẩu mới" value={password.newPassword} onChange={e => setPassword({ ...password, newPassword: e.target.value })} className={inputClass} />
+              <input type="password" minLength={8} placeholder="Xác nhận mật khẩu mới" value={password.confirmPassword} onChange={e => setPassword({ ...password, confirmPassword: e.target.value })} className={inputClass} />
             </div>
           </div>
-
-          {/* Divider */}
-          <div className="flex items-center gap-sm py-sm">
-            <div className="h-px bg-outline-variant flex-grow"></div>
-            <span className="font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">Đổi mật khẩu</span>
-            <div className="h-px bg-outline-variant flex-grow"></div>
-          </div>
-
-          {/* Password Info */}
-          <div className="flex flex-col gap-md">
-            <div className="input-wrapper">
-              <input className="input-field font-body-md text-body-md text-on-surface pr-12" id="current_password" placeholder=" " type={showCurrentPassword ? "text" : "password"} />
-              <label className="input-label font-label-md text-label-md" htmlFor="current_password">Mật khẩu hiện tại</label>
-              <button aria-label="Hiện mật khẩu" className="password-toggle" type="button" onClick={() => setShowCurrentPassword(!showCurrentPassword)}>
-                <span className="material-symbols-outlined text-[20px]">{showCurrentPassword ? "visibility" : "visibility_off"}</span>
-              </button>
-            </div>
-            <div className="input-wrapper">
-              <input className="input-field font-body-md text-body-md text-on-surface pr-12" id="new_password" placeholder=" " type={showNewPassword ? "text" : "password"} />
-              <label className="input-label font-label-md text-label-md" htmlFor="new_password">Mật khẩu mới</label>
-              <button aria-label="Hiện mật khẩu" className="password-toggle" type="button" onClick={() => setShowNewPassword(!showNewPassword)}>
-                <span className="material-symbols-outlined text-[20px]">{showNewPassword ? "visibility" : "visibility_off"}</span>
-              </button>
-            </div>
-            <div className="input-wrapper">
-              <input className="input-field font-body-md text-body-md text-on-surface pr-12" id="confirm_password" placeholder=" " type={showConfirmPassword ? "text" : "password"} />
-              <label className="input-label font-label-md text-label-md" htmlFor="confirm_password">Xác nhận mật khẩu mới</label>
-              <button aria-label="Hiện mật khẩu" className="password-toggle" type="button" onClick={() => setShowConfirmPassword(!showConfirmPassword)}>
-                <span className="material-symbols-outlined text-[20px]">{showConfirmPassword ? "visibility" : "visibility_off"}</span>
-              </button>
-            </div>
-          </div>
-
-          {/* Actions */}
-          <div className="flex flex-col sm:flex-row gap-sm justify-end mt-md pt-sm">
-            <button className="px-6 py-3 rounded-[12px] font-label-md text-label-md font-bold text-secondary-container border-2 border-secondary-container hover:bg-secondary-fixed transition-colors order-2 sm:order-1" type="button">
-              Hủy
-            </button>
-            <button className="px-6 py-3 rounded-[12px] font-label-md text-label-md font-bold text-on-primary bg-primary-container hover:bg-primary transition-colors order-1 sm:order-2 shadow-sm hover:shadow-md" onClick={handleSave} type="button">
-              Lưu thay đổi
-            </button>
-          </div>
-        </form>
-      </div>
-
-      {/* Success Toast */}
-      <div className={`fixed top-24 right-gutter md:right-xl bg-tertiary-container text-on-tertiary-container px-4 py-3 rounded-lg shadow-md font-label-md text-label-md flex items-center gap-xs z-50 transition-all duration-300 ${showToast ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-[-20px] pointer-events-none'}`}>
-        <span className="material-symbols-outlined filled">check_circle</span>
-        Cập nhật thông tin thành công!
-      </div>
-    </div>
+        </div>
+        <div className="flex justify-end"><button disabled={saving || uploading} className="w-full sm:w-auto rounded-xl bg-primary px-6 py-3 font-bold text-white disabled:opacity-50">{saving ? 'Đang lưu...' : 'Lưu thay đổi'}</button></div>
+      </form>
+    </main>
   );
 }
