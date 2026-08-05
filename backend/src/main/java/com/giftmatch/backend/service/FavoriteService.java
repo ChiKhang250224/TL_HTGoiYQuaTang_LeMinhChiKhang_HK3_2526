@@ -1,42 +1,64 @@
 package com.giftmatch.backend.service;
 
+import com.giftmatch.backend.dto.FavoriteDto;
 import com.giftmatch.backend.entity.Favorite;
 import com.giftmatch.backend.entity.Product;
 import com.giftmatch.backend.entity.User;
 import com.giftmatch.backend.repository.FavoriteRepository;
 import com.giftmatch.backend.repository.ProductRepository;
-import com.giftmatch.backend.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
-import java.util.Optional;
 
 @Service
 @RequiredArgsConstructor
 public class FavoriteService {
     private final FavoriteRepository favoriteRepository;
-    private final UserRepository userRepository;
     private final ProductRepository productRepository;
 
-    public List<Favorite> getUserFavorites(Long userId) {
-        return favoriteRepository.findByUser_UserId(userId);
+    @Transactional(readOnly = true)
+    public List<FavoriteDto> getUserFavorites(User user) {
+        return favoriteRepository.findByUser_UserId(user.getUserId())
+                .stream()
+                .map(FavoriteDto::from)
+                .toList();
     }
 
-    public boolean toggleFavorite(Long userId, Long productId) {
-        Optional<Favorite> existing = favoriteRepository.findByUser_UserIdAndProduct_ProductId(userId, productId);
-        if (existing.isPresent()) {
-            favoriteRepository.delete(existing.get());
-            return false; // means it was removed
-        } else {
-            User user = userRepository.findById(userId).orElseThrow();
-            Product product = productRepository.findById(productId).orElseThrow();
-            Favorite favorite = Favorite.builder()
-                    .user(user)
-                    .product(product)
-                    .build();
-            favoriteRepository.save(favorite);
-            return true; // means it was added
+    @Transactional
+    public FavoriteDto addFavorite(User user, Long productId) {
+        return favoriteRepository
+                .findByUser_UserIdAndProduct_ProductId(user.getUserId(), productId)
+                .map(FavoriteDto::from)
+                .orElseGet(() -> createFavorite(user, productId));
+    }
+
+    @Transactional
+    public void removeFavorite(User user, Long productId) {
+        favoriteRepository
+                .findByUser_UserIdAndProduct_ProductId(user.getUserId(), productId)
+                .ifPresent(favoriteRepository::delete);
+    }
+
+    private FavoriteDto createFavorite(User user, Long productId) {
+        Product product = productRepository.findById(productId)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "Khong tim thay san pham."
+                ));
+        if (!"APPROVED".equals(product.getStatus())) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Chi co the luu san pham da duoc phe duyet."
+            );
         }
+        Favorite favorite = Favorite.builder()
+                .user(user)
+                .product(product)
+                .build();
+        return FavoriteDto.from(favoriteRepository.save(favorite));
     }
 }

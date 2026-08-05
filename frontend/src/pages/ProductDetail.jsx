@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import api from '../utils/api';
 import useCompareProducts from '../hooks/useCompareProducts';
+import useFavorites from '../hooks/useFavorites';
 
 const FALLBACK_IMAGE =
   'https://images.unsplash.com/photo-1549465220-1a8b9238cd48?auto=format&fit=crop&w=1000&q=80';
@@ -15,6 +16,7 @@ export default function ProductDetail() {
   const [error, setError] = useState('');
   const [compareMessage, setCompareMessage] = useState('');
   const { count, isSelected, toggleProduct } = useCompareProducts();
+  const { isFavorite, toggleFavorite, error: favoriteError } = useFavorites();
 
   useEffect(() => {
     let active = true;
@@ -65,6 +67,7 @@ export default function ProductDetail() {
   }
 
   const selected = isSelected(product.productId);
+  const favorite = isFavorite(product.productId);
   return (
     <main className="flex-grow max-w-6xl mx-auto w-full px-gutter md:px-xl py-xl">
       <nav className="mb-6 text-label-md text-on-surface-variant">
@@ -122,6 +125,17 @@ export default function ProductDetail() {
           <div className="mt-auto pt-8 flex flex-wrap gap-3">
             <button
               type="button"
+              onClick={() => toggleFavorite(product)}
+              className={`rounded-xl border-2 px-5 py-3 font-bold transition-colors ${
+                favorite
+                  ? 'border-error bg-error-container text-error'
+                  : 'border-primary text-primary hover:bg-primary hover:text-white'
+              }`}
+            >
+              {favorite ? 'Đã yêu thích' : 'Thêm vào yêu thích'}
+            </button>
+            <button
+              type="button"
               onClick={handleCompare}
               className={`rounded-xl border-2 px-5 py-3 font-bold transition-colors ${
                 selected
@@ -142,6 +156,9 @@ export default function ProductDetail() {
           </div>
           {compareMessage && (
             <p className="mt-3 text-label-md text-on-surface-variant">{compareMessage}</p>
+          )}
+          {favoriteError && (
+            <p className="mt-3 text-label-md text-error">{favoriteError}</p>
           )}
         </div>
       </section>
