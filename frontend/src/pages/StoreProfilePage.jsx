@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import api from '../utils/api';
 
 export default function StoreProfilePage() {
-  const [form, setForm] = useState({ storeName: '', description: '', address: '', phone: '', logoUrl: '', email: '', status: '' });
+  const [form, setForm] = useState({ storeName: '', description: '', address: '', phone: '', logoUrl: '', email: '', status: '', reviewNote: '' });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -41,6 +41,7 @@ export default function StoreProfilePage() {
             <div className="mx-auto h-32 w-32 rounded-2xl overflow-hidden bg-surface-container flex items-center justify-center text-4xl font-bold text-primary">{form.logoUrl ? <img src={form.logoUrl} alt="Logo cửa hàng" className="h-full w-full object-cover" /> : form.storeName?.charAt(0)}</div>
             <label className="mt-4 inline-flex cursor-pointer items-center gap-2 rounded-xl border border-primary px-4 py-2 font-bold text-primary"><span className="material-symbols-outlined">upload</span>{uploading ? 'Đang tải...' : 'Đổi logo'}<input type="file" accept="image/*" onChange={uploadLogo} className="hidden" /></label>
             <div className="mt-4 rounded-full bg-primary/10 px-3 py-1.5 text-sm font-bold text-primary break-words">{form.status || 'PENDING'}</div>
+            {form.reviewNote && <p className="mt-3 break-words rounded-xl bg-surface-container p-3 text-left text-sm"><strong>Phản hồi Admin:</strong><br/>{form.reviewNote}</p>}
           </aside>
           <section className="rounded-3xl border border-outline-variant bg-white p-5 sm:p-8 shadow-sm space-y-5 min-w-0">
             <div><h2 className="text-2xl font-bold">Thông tin hiển thị</h2><p className="mt-1 text-on-surface-variant">Dữ liệu được sử dụng tại catalog và kết quả gợi ý.</p></div>

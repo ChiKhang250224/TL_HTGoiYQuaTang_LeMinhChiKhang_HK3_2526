@@ -38,6 +38,7 @@ public class RecommendationService {
     private static final BigDecimal MODEL_BUDGET_TO_VND = BigDecimal.valueOf(1000);
 
     private final RestClient aiRestClient;
+    private final AiResilienceGuard aiResilienceGuard;
     private final ProductRepository productRepository;
     private final HistoryService historyService;
 
@@ -59,13 +60,13 @@ public class RecommendationService {
         AiRecommendationResponse aiResponse;
         try {
             String requestJson = AI_JSON_MAPPER.writeValueAsString(aiRequest);
-            String responseJson = aiRestClient.post()
+            String responseJson = aiResilienceGuard.execute(() -> aiRestClient.post()
                     .uri("/predict")
                     .contentType(MediaType.APPLICATION_JSON)
                     .accept(MediaType.APPLICATION_JSON)
                     .body(requestJson)
                     .retrieve()
-                    .body(String.class);
+                    .body(String.class));
             aiResponse = AI_JSON_MAPPER.readValue(
                     responseJson,
                     AiRecommendationResponse.class
@@ -77,10 +78,16 @@ public class RecommendationService {
                     exception.getResponseBodyAsString(),
                     exception
             );
+            if (exception.getStatusCode().is4xxClientError()) {
+                throw new ResponseStatusException(
+                        HttpStatus.UNPROCESSABLE_ENTITY,
+                        "AI từ chối dữ liệu khảo sát: " + exception.getResponseBodyAsString(),
+                        exception
+                );
+            }
             throw new ResponseStatusException(
-                    HttpStatus.UNPROCESSABLE_ENTITY,
-                    "AI từ chối dữ liệu khảo sát: "
-                            + exception.getResponseBodyAsString(),
+                    HttpStatus.SERVICE_UNAVAILABLE,
+                    "Dịch vụ AI đang gặp lỗi tạm thời. Vui lòng thử lại sau.",
                     exception
             );
         } catch (Exception exception) {
@@ -110,7 +117,7 @@ public class RecommendationService {
                 );
 
         List<RecommendationResponse.ProductRecommendation> rankedProducts =
-                rankProducts(availableProducts, aiResponse.getPredictions());
+                rankProducts(availableProducts, aiResponse.getPredictions(), request);
 
         String insights = buildInsights(request, aiResponse);
         Long historyId = historyService.saveRecommendation(
@@ -153,7 +160,8 @@ public class RecommendationService {
 
     private List<RecommendationResponse.ProductRecommendation> rankProducts(
             List<Product> products,
-            List<AiRecommendationResponse.GiftPrediction> predictions
+            List<AiRecommendationResponse.GiftPrediction> predictions,
+            RecommendationRequest request
     ) {
         List<RecommendationResponse.ProductRecommendation> ranked = new ArrayList<>();
         Set<Long> addedProductIds = new HashSet<>();
@@ -177,7 +185,13 @@ public class RecommendationService {
                 double matchScore = exactGift
                         ? prediction.getScore()
                         : prediction.getScore() * 0.85;
-                ranked.add(toProductRecommendation(product, prediction, matchScore));
+                ranked.add(toProductRecommendation(
+                        product,
+                        prediction,
+                        matchScore,
+                        exactGift,
+                        request
+                ));
                 addedProductIds.add(product.getProductId());
             }
         }
@@ -193,7 +207,9 @@ public class RecommendationService {
     private RecommendationResponse.ProductRecommendation toProductRecommendation(
             Product product,
             AiRecommendationResponse.GiftPrediction prediction,
-            double matchScore
+            double matchScore,
+            boolean exactGift,
+            RecommendationRequest request
     ) {
         return RecommendationResponse.ProductRecommendation.builder()
                 .productId(product.getProductId())
@@ -206,7 +222,27 @@ public class RecommendationService {
                 .aiGiftName(product.getAiGiftName())
                 .predictedGiftName(prediction.getGiftName())
                 .matchScore(matchScore)
+                .matchSource(exactGift ? "EXACT_LABEL" : "GIFT_TYPE_FALLBACK")
+                .matchReason(buildProductReason(product, prediction, exactGift, request))
                 .build();
+    }
+
+    private String buildProductReason(
+            Product product,
+            AiRecommendationResponse.GiftPrediction prediction,
+            boolean exactGift,
+            RecommendationRequest request
+    ) {
+        String modelReason = exactGift
+                ? "Mô hình dự đoán đúng nhãn quà \"" + prediction.getGiftName() + "\"."
+                : "Sản phẩm cùng loại quà \"" + prediction.getGiftType()
+                    + "\" với nhãn mô hình dự đoán; điểm được áp dụng hệ số dự phòng 0,85.";
+        String catalogReason = " Backend chỉ giữ sản phẩm đã duyệt, còn hàng và có giá "
+                + product.getPrice().toPlainString()
+                + " đồng trong ngân sách khảo sát."
+                + " Ngữ cảnh chính: dịp " + request.getOccasion()
+                + ", sở thích " + request.getHobby() + ".";
+        return modelReason + catalogReason;
     }
 
     private boolean equalsNormalized(String left, String right) {

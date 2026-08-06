@@ -51,6 +51,12 @@ public class RecommendationItem {
     @Column(precision = 10, scale = 8)
     private BigDecimal matchScore;
 
+    @Column(length = 20)
+    private String matchSource;
+
+    @Column(length = 1000)
+    private String matchReason;
+
     @Column(nullable = false)
     private Integer rankPosition;
 

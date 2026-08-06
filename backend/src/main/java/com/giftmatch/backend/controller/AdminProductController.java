@@ -7,6 +7,8 @@ import com.giftmatch.backend.entity.GiftLabel;
 import com.giftmatch.backend.entity.Product;
 import com.giftmatch.backend.repository.GiftLabelRepository;
 import com.giftmatch.backend.repository.ProductRepository;
+import com.giftmatch.backend.security.UserDetailsImpl;
+import com.giftmatch.backend.service.AuditLogService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -19,6 +21,7 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 
 import java.util.List;
 import java.util.Map;
@@ -33,6 +36,7 @@ public class AdminProductController {
 
     private final ProductRepository productRepository;
     private final GiftLabelRepository giftLabelRepository;
+    private final AuditLogService auditLogService;
 
     @GetMapping("/taxonomy")
     public ResponseEntity<Map<String, String>> getTaxonomy() {
@@ -69,7 +73,8 @@ public class AdminProductController {
     @PutMapping("/{productId}/label")
     public ResponseEntity<ProductLabelItem> labelProduct(
             @PathVariable Long productId,
-            @Valid @RequestBody ProductLabelRequest request
+            @Valid @RequestBody ProductLabelRequest request,
+            @AuthenticationPrincipal UserDetailsImpl details
     ) {
         Product product = productRepository.findById(productId).orElseThrow();
         GiftLabel label = giftLabelRepository
@@ -87,12 +92,17 @@ public class AdminProductController {
             }
             product.setStatus(status);
         }
-        return ResponseEntity.ok(ProductLabelItem.from(productRepository.save(product)));
+        Product saved = productRepository.save(product);
+        record(details, "PRODUCT_LABELED", productId, "Gán nhãn " + label.getDisplayName() + " cho sản phẩm " + product.getName());
+        return ResponseEntity.ok(ProductLabelItem.from(saved));
     }
 
     @PutMapping("/{productId}/approve")
     @Transactional
-    public ResponseEntity<ProductLabelItem> approveProduct(@PathVariable Long productId) {
+    public ResponseEntity<ProductLabelItem> approveProduct(
+            @PathVariable Long productId,
+            @AuthenticationPrincipal UserDetailsImpl details
+    ) {
         Product product = findProduct(productId);
         if (product.getGiftLabel() == null
                 || product.getAiGiftName() == null
@@ -104,19 +114,35 @@ public class AdminProductController {
         }
         product.setStatus("APPROVED");
         product.setRejectionReason(null);
-        return ResponseEntity.ok(ProductLabelItem.from(productRepository.save(product)));
+        Product saved = productRepository.save(product);
+        record(details, "PRODUCT_APPROVED", productId, "Phê duyệt sản phẩm " + product.getName());
+        return ResponseEntity.ok(ProductLabelItem.from(saved));
+    }
+
+    public ResponseEntity<ProductLabelItem> approveProduct(Long productId) {
+        return approveProduct(productId, null);
     }
 
     @PutMapping("/{productId}/reject")
     @Transactional
     public ResponseEntity<ProductLabelItem> rejectProduct(
             @PathVariable Long productId,
-            @Valid @RequestBody ProductRejectionRequest request
+            @Valid @RequestBody ProductRejectionRequest request,
+            @AuthenticationPrincipal UserDetailsImpl details
     ) {
         Product product = findProduct(productId);
         product.setStatus("REJECTED");
         product.setRejectionReason(request.getReason().trim());
-        return ResponseEntity.ok(ProductLabelItem.from(productRepository.save(product)));
+        Product saved = productRepository.save(product);
+        record(details, "PRODUCT_REJECTED", productId, "Từ chối sản phẩm " + product.getName() + ": " + request.getReason().trim());
+        return ResponseEntity.ok(ProductLabelItem.from(saved));
+    }
+
+    public ResponseEntity<ProductLabelItem> rejectProduct(
+            Long productId,
+            ProductRejectionRequest request
+    ) {
+        return rejectProduct(productId, request, null);
     }
 
     private Product findProduct(Long productId) {
@@ -125,5 +151,11 @@ public class AdminProductController {
                         HttpStatus.NOT_FOUND,
                         "Khong tim thay san pham."
                 ));
+    }
+
+    private void record(UserDetailsImpl details, String action, Long productId, String summary) {
+        if (details != null) {
+            auditLogService.record(details.getUser(), action, "PRODUCT", productId, summary);
+        }
     }
 }

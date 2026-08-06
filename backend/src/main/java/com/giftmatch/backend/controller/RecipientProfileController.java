@@ -33,7 +33,7 @@ public class RecipientProfileController {
             @PathVariable Long userId,
             @AuthenticationPrincipal UserDetailsImpl userDetails
     ) {
-        verifyOwnerOrAdmin(userId, userDetails);
+        verifyOwner(userId, userDetails);
         return ResponseEntity.ok(profileService.getProfilesByUser(userId));
     }
 
@@ -65,7 +65,7 @@ public class RecipientProfileController {
             @Valid @RequestBody RecipientProfileDto dto,
             @AuthenticationPrincipal UserDetailsImpl userDetails
     ) {
-        verifyOwnerOrAdmin(userId, userDetails);
+        verifyOwner(userId, userDetails);
         return ResponseEntity.ok(profileService.createProfile(userId, dto));
     }
 
@@ -94,15 +94,12 @@ public class RecipientProfileController {
         return ResponseEntity.noContent().build();
     }
 
-    private void verifyOwnerOrAdmin(
+    private void verifyOwner(
             Long userId,
             UserDetailsImpl userDetails
     ) {
         boolean isOwner = userDetails.getUser().getUserId().equals(userId);
-        boolean isAdmin = userDetails.getAuthorities().stream()
-                .anyMatch(authority ->
-                        authority.getAuthority().equals("ROLE_ADMIN"));
-        if (!isOwner && !isAdmin) {
+        if (!isOwner) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN);
         }
     }

@@ -5,6 +5,7 @@ import CustomSelect from '../components/CustomSelect';
 import { useGoogleLogin } from '@react-oauth/google';
 import _ReactFacebookLogin from 'react-facebook-login/dist/facebook-login-render-props';
 const ReactFacebookLogin = _ReactFacebookLogin.default || _ReactFacebookLogin;
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
 
 export default function AuthPage() {
   const navigate = useNavigate();
@@ -36,7 +37,7 @@ export default function AuthPage() {
 
   const handleSocialLogin = async (token, provider) => {
     try {
-      const res = await axios.post(`${import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080'}/api/auth/social-login`, { token, provider });
+      const res = await axios.post(`${API_BASE_URL}/api/auth/social-login`, { token, provider });
       setSuccess(`Đăng nhập ${provider} thành công!`);
       setError('');
       localStorage.setItem('token', res.data.token);
@@ -52,8 +53,8 @@ export default function AuthPage() {
       } else {
         navigate('/home');
       }
-    } catch (err) {
-      setError(`Đăng nhập bằng ${provider} thất bại hoặc tính năng chưa được cấu hình Client ID.`);
+    } catch (requestError) {
+      setError(requestError.response?.data?.detail || `Đăng nhập bằng ${provider} thất bại hoặc tính năng chưa được cấu hình Client ID.`);
     }
   };
 
@@ -64,7 +65,7 @@ export default function AuthPage() {
   const handleLogin = async (e) => {
     e.preventDefault();
     try {
-      const res = await axios.post('http://localhost:8080/api/auth/login', { email: loginEmail, password: loginPassword });
+      const res = await axios.post(`${API_BASE_URL}/api/auth/login`, { email: loginEmail, password: loginPassword });
       setSuccess(`Đăng nhập thành công!`);
       setError('');
       localStorage.setItem('token', res.data.token);
@@ -80,8 +81,8 @@ export default function AuthPage() {
       } else {
         navigate('/home');
       }
-    } catch (err) {
-      setError('Đăng nhập thất bại. Vui lòng kiểm tra lại email và mật khẩu.');
+    } catch (requestError) {
+      setError(requestError.response?.data?.detail || 'Đăng nhập thất bại. Vui lòng kiểm tra lại email và mật khẩu.');
       setSuccess('');
     }
   };
@@ -99,14 +100,18 @@ export default function AuthPage() {
       setError('Số điện thoại không hợp lệ (phải là số điện thoại Việt Nam 10 số).');
       return;
     }
+    if (regData.password.length < 8 || regData.password.length > 72) {
+      setError('Mật khẩu phải có từ 8 đến 72 ký tự.');
+      return;
+    }
 
     try {
-      await axios.post('http://localhost:8080/api/auth/register', regData);
+      await axios.post(`${API_BASE_URL}/api/auth/register`, regData);
       setSuccess('Đăng ký thành công! Vui lòng đăng nhập.');
       setError('');
       handleTabChange('login');
     } catch (err) {
-      setError(err.response?.data?.message || 'Đăng ký thất bại. Email có thể đã tồn tại.');
+      setError(err.response?.data?.detail || err.response?.data?.message || 'Đăng ký thất bại. Email có thể đã tồn tại.');
     }
   };
 
@@ -263,11 +268,11 @@ export default function AuthPage() {
               </div>
               <div>
                 <label className="block text-sm font-label-md text-on-surface mb-1">Mật khẩu</label>
-                <input type="password" name="password" onChange={handleRegChange} className="w-full px-4 py-3 bg-surface-container-low border border-outline-variant rounded-xl focus:ring-2 focus:ring-primary-container focus:border-primary-container outline-none transition-all" required />
+                <input type="password" name="password" minLength="8" maxLength="72" onChange={handleRegChange} className="w-full px-4 py-3 bg-surface-container-low border border-outline-variant rounded-xl focus:ring-2 focus:ring-primary-container focus:border-primary-container outline-none transition-all" required />
               </div>
               <div>
                 <label className="block text-sm font-label-md text-on-surface mb-1">Số điện thoại</label>
-                <input type="text" name="phoneNumber" onChange={handleRegChange} className="w-full px-4 py-3 bg-surface-container-low border border-outline-variant rounded-xl focus:ring-2 focus:ring-primary-container focus:border-primary-container outline-none transition-all" required />
+                <input type="tel" name="phoneNumber" inputMode="tel" onChange={handleRegChange} className="w-full px-4 py-3 bg-surface-container-low border border-outline-variant rounded-xl focus:ring-2 focus:ring-primary-container focus:border-primary-container outline-none transition-all" required />
               </div>
               <div>
                 <label className="block text-sm font-label-md text-on-surface mb-1">Loại tài khoản</label>

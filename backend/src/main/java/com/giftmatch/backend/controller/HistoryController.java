@@ -1,10 +1,8 @@
 package com.giftmatch.backend.controller;
 
-import com.giftmatch.backend.dto.RecommendationHistoryDto;
 import com.giftmatch.backend.dto.HistoryResponse;
 import com.giftmatch.backend.dto.RecommendationFeedbackRequest;
 import com.giftmatch.backend.dto.RecommendationFeedbackResponse;
-import com.giftmatch.backend.entity.RecommendationHistory;
 import com.giftmatch.backend.security.UserDetailsImpl;
 import com.giftmatch.backend.service.HistoryService;
 import com.giftmatch.backend.service.RecommendationFeedbackService;
@@ -31,9 +29,7 @@ public class HistoryController {
             @AuthenticationPrincipal UserDetailsImpl userDetails
     ) {
         boolean isOwner = userDetails.getUser().getUserId().equals(userId);
-        boolean isAdmin = userDetails.getAuthorities().stream()
-                .anyMatch(authority -> authority.getAuthority().equals("ROLE_ADMIN"));
-        if (!isOwner && !isAdmin) {
+        if (!isOwner) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN);
         }
         return ResponseEntity.ok(historyService.getUserHistory(userId));
@@ -46,15 +42,6 @@ public class HistoryController {
         return ResponseEntity.ok(
                 historyService.getUserHistory(userDetails.getUser().getUserId())
         );
-    }
-
-    @PostMapping
-    public ResponseEntity<RecommendationHistory> saveHistory(
-            @RequestBody RecommendationHistoryDto dto,
-            @AuthenticationPrincipal UserDetailsImpl userDetails
-    ) {
-        dto.setUserId(userDetails.getUser().getUserId());
-        return ResponseEntity.ok(historyService.saveHistory(dto));
     }
 
     @PutMapping("/{historyId}/feedback")

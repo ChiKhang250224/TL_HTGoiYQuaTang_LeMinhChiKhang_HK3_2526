@@ -16,6 +16,8 @@ export default function StoreProductsPage() {
 
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [storeProfile, setStoreProfile] = useState(null);
+  const [actionError, setActionError] = useState('');
   
   // Modal State
   const [showModal, setShowModal] = useState(false);
@@ -35,6 +37,18 @@ export default function StoreProductsPage() {
   const fetchProducts = async () => {
     try {
       const res = await api.get('/products/store/me');
+      let recommendationAppearances = new Map();
+      try {
+        const analyticsResponse = await api.get('/store/analytics');
+        recommendationAppearances = new Map(
+          (analyticsResponse.data?.topRecommendedProducts || []).map(item => [
+            Number(item.productId),
+            Number(item.appearances || 0),
+          ])
+        );
+      } catch (analyticsError) {
+        console.warn('Khong the tai thong ke goi y cua cua hang', analyticsError);
+      }
       // For UI compatibility, map fields
       const mapped = res.data.map(p => ({
         id: p.productId, // Adjusting ID field
@@ -48,7 +62,7 @@ export default function StoreProductsPage() {
         businessStatus: p.businessStatus || 'IN_STOCK',
         status: p.status === 'PENDING' ? 'Chờ duyệt' : (p.status === 'APPROVED' ? 'Đã duyệt' : 'Bị từ chối'),
         statusBg: p.status === 'PENDING' ? 'bg-[#FEF3C7] text-[#D97706] border-[#FCD34D]' : (p.status === 'APPROVED' ? 'bg-tertiary-container/10 text-tertiary-container border-tertiary-container/20' : 'bg-error-container text-error border-error/20'),
-        aiCount: 0,
+        aiCount: recommendationAppearances.get(Number(p.productId)) || 0,
         img: p.imageUrl || 'https://images.unsplash.com/photo-1549465220-1a8b9238cd48?q=80&w=200&auto=format&fit=crop'
       }));
       setProducts(mapped);
@@ -61,6 +75,9 @@ export default function StoreProductsPage() {
 
   useEffect(() => {
     fetchProducts();
+    api.get('/store/profile/me')
+      .then(response => setStoreProfile(response.data))
+      .catch(error => setActionError(error.response?.data?.message || 'Không thể tải trạng thái cửa hàng.'));
   }, []);
 
   const handleDelete = async (id) => {
@@ -70,6 +87,7 @@ export default function StoreProductsPage() {
         setProducts(products.filter(p => p.id !== id));
       } catch (error) {
         console.error("Lỗi khi xóa", error);
+        setActionError(error.response?.data?.message || 'Không thể xóa sản phẩm.');
       }
     }
   };
@@ -83,6 +101,7 @@ export default function StoreProductsPage() {
     } catch (error) {
       console.error('Không thể cập nhật trạng thái kinh doanh', error);
       alert(error.response?.data?.message || 'Không thể cập nhật trạng thái kinh doanh.');
+      setActionError(error.response?.data?.message || 'Không thể cập nhật trạng thái kinh doanh.');
     }
   };
 
@@ -134,12 +153,17 @@ export default function StoreProductsPage() {
       setShowModal(false);
     } catch (error) {
       console.error("Lỗi khi lưu sản phẩm", error);
+      setActionError(error.response?.data?.message || 'Không thể lưu sản phẩm.');
     } finally {
       setUploading(false);
     }
   };
 
   const openEditModal = (product) => {
+    if (storeProfile?.status !== 'APPROVED') {
+      setActionError('Cửa hàng cần được Admin phê duyệt trước khi thay đổi sản phẩm.');
+      return;
+    }
     setEditId(product.id);
     setFormData({
       name: product.name,
@@ -155,6 +179,10 @@ export default function StoreProductsPage() {
   };
 
   const openAddModal = () => {
+    if (storeProfile?.status !== 'APPROVED') {
+      setActionError('Cửa hàng cần được Admin phê duyệt trước khi thêm sản phẩm.');
+      return;
+    }
     setEditId(null);
     setFormData({
       name: '', price: '', category: 'Mỹ phẩm', description: '',
@@ -203,7 +231,12 @@ export default function StoreProductsPage() {
         </nav>
 
         <div className="mt-auto pt-4 border-t border-surface-variant/20">
-          <button className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-primary-fixed text-on-primary-fixed font-label-md text-label-md font-semibold hover:bg-primary-fixed-dim transition-colors active:scale-95 duration-150 shadow-sm">
+          <button
+            type="button"
+            disabled={storeProfile?.status !== 'APPROVED'}
+            onClick={openAddModal}
+            className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-primary-fixed text-on-primary-fixed font-label-md text-label-md font-semibold hover:bg-primary-fixed-dim transition-colors active:scale-95 duration-150 shadow-sm disabled:cursor-not-allowed disabled:opacity-50"
+          >
             <span className="material-symbols-outlined text-[20px]">add_circle</span>
             New Product
           </button>
@@ -246,10 +279,19 @@ export default function StoreProductsPage() {
 
         {/* Page Content */}
         <main className="flex-1 p-gutter md:p-xl animate-fade-in-up">
+          {storeProfile && storeProfile.status !== 'APPROVED' && (
+            <div className="mb-5 rounded-2xl border border-amber-300 bg-amber-50 p-4 text-amber-900">
+              <strong>Hồ sơ cửa hàng: {storeProfile.status}</strong>
+              <p className="mt-1 text-sm">Chức năng thêm, sửa, xóa và đổi trạng thái sản phẩm được mở sau khi Admin phê duyệt.</p>
+              {storeProfile.reviewNote && <p className="mt-2 text-sm"><strong>Phản hồi:</strong> {storeProfile.reviewNote}</p>}
+            </div>
+          )}
+          {actionError && <div className="mb-5 rounded-xl bg-error-container px-4 py-3 text-error">{actionError}</div>}
+          {loading && <div className="mb-5 rounded-xl bg-surface-container px-4 py-3 text-on-surface-variant">Đang tải sản phẩm của cửa hàng...</div>}
           {/* Header & Action */}
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-lg">
             <h1 className="font-headline-lg text-headline-lg text-on-background tracking-tight">Quản lý sản phẩm</h1>
-            <button onClick={openAddModal} className="bg-primary-container text-on-primary px-6 py-3 rounded-[12px] font-label-md flex items-center gap-2 shadow-sm hover:shadow-md transition-shadow active:scale-95">
+            <button disabled={storeProfile?.status !== 'APPROVED'} onClick={openAddModal} className="bg-primary-container text-on-primary px-6 py-3 rounded-[12px] font-label-md flex items-center gap-2 shadow-sm hover:shadow-md transition-shadow active:scale-95 disabled:cursor-not-allowed disabled:opacity-50">
               <span className="material-symbols-outlined">add</span>
               Thêm sản phẩm
             </button>
@@ -311,8 +353,9 @@ export default function StoreProductsPage() {
                       <td className="px-6 py-4">
                         <select
                           value={product.businessStatus}
+                          disabled={storeProfile?.status !== 'APPROVED'}
                           onChange={event => handleBusinessStatus(product.id, event.target.value)}
-                          className="min-w-[150px] rounded-lg border border-outline-variant bg-white px-3 py-2 text-sm focus:border-primary focus:outline-none"
+                          className="min-w-[150px] rounded-lg border border-outline-variant bg-white px-3 py-2 text-sm focus:border-primary focus:outline-none disabled:opacity-50"
                           aria-label={`Trạng thái kinh doanh của ${product.name}`}
                         >
                           {Object.entries(BUSINESS_STATUS_LABELS).map(([value, label]) => (
@@ -325,10 +368,10 @@ export default function StoreProductsPage() {
                       </td>
                       <td className="px-6 py-4 text-right">
                         <div className="flex justify-end gap-2">
-                          <button onClick={() => openEditModal(product)} className="text-on-surface-variant hover:text-primary bg-surface hover:bg-surface-variant transition-colors p-2 rounded-lg shadow-sm border border-outline-variant">
+                          <button disabled={storeProfile?.status !== 'APPROVED'} onClick={() => openEditModal(product)} className="text-on-surface-variant hover:text-primary bg-surface hover:bg-surface-variant transition-colors p-2 rounded-lg shadow-sm border border-outline-variant disabled:opacity-40">
                             <span className="material-symbols-outlined text-[20px]">edit</span>
                           </button>
-                          <button onClick={() => handleDelete(product.id)} className="text-on-surface-variant hover:text-error bg-surface hover:bg-error-container transition-colors p-2 rounded-lg shadow-sm border border-outline-variant">
+                          <button disabled={storeProfile?.status !== 'APPROVED'} onClick={() => handleDelete(product.id)} className="text-on-surface-variant hover:text-error bg-surface hover:bg-error-container transition-colors p-2 rounded-lg shadow-sm border border-outline-variant disabled:opacity-40">
                             <span className="material-symbols-outlined text-[20px]">delete</span>
                           </button>
                         </div>

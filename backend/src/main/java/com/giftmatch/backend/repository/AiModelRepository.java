@@ -9,4 +9,5 @@ public interface AiModelRepository extends JpaRepository<AiModel, Long> {
     Optional<AiModel> findByModelVersion(String modelVersion);
 
     Optional<AiModel> findFirstByStatusOrderByActivatedAtDesc(String status);
+    Optional<AiModel> findByFilename(String filename);
 }

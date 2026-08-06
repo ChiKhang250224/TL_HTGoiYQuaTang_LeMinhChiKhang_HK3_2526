@@ -5,6 +5,7 @@ import com.giftmatch.backend.entity.Anniversary;
 import com.giftmatch.backend.entity.GiftNotification;
 import com.giftmatch.backend.entity.RecipientProfile;
 import com.giftmatch.backend.entity.User;
+import com.giftmatch.backend.entity.Role;
 import com.giftmatch.backend.repository.GiftNotificationRepository;
 import com.giftmatch.backend.repository.RecipientProfileRepository;
 import com.giftmatch.backend.repository.UserRepository;
@@ -79,6 +80,12 @@ public class GiftNotificationService {
                     notification.setReadAt(now);
                 });
         notificationRepository.saveAll(notifications);
+    }
+
+    @Transactional
+    public void generateForAllActiveCustomers() {
+        userRepository.findByRoleAndIsActiveTrue(Role.CUSTOMER)
+                .forEach(user -> generateUpcomingNotifications(user.getUserId()));
     }
 
     private void generateUpcomingNotifications(Long userId) {

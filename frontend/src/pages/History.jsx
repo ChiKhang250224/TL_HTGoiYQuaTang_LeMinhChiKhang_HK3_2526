@@ -182,6 +182,11 @@ export default function History() {
                                 || GIFT_TYPE_LABELS[product.giftType]
                                 || product.giftType}
                             </p>
+                            {product.matchReason && (
+                              <p className="mt-2 line-clamp-3 text-xs text-on-surface-variant" title={product.matchReason}>
+                                {product.matchReason}
+                              </p>
+                            )}
                             <p className="text-primary font-bold mt-2">
                               {formatPrice(product.price)}
                             </p>

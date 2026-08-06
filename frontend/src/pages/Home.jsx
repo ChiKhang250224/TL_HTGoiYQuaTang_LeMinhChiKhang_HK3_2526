@@ -1,5 +1,3 @@
-import { Link } from 'react-router-dom';
-
 export default function Home() {
   return (
     <main className="flex-grow w-full max-w-container-max mx-auto px-gutter md:px-xl py-xl space-y-32">

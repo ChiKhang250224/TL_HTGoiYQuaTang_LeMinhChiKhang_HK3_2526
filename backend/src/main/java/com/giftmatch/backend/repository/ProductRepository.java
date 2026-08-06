@@ -18,6 +18,8 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
             String status, String businessStatus, BigDecimal maxPrice
     );
     List<Product> findByAiGiftNameIsNullOrAiGiftName(String aiGiftName);
+    long countByStatus(String status);
+    long countByStore_UserId(Long storeId);
 
     @org.springframework.data.jpa.repository.Query("""
             SELECT p

@@ -18,10 +18,13 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.Locale;
 import lombok.RequiredArgsConstructor;
 
 @Service
@@ -35,8 +38,9 @@ public class AuthService {
 
     @Transactional
     public AuthResponse register(RegisterRequest request) {
-        if(userRepository.existsByEmail(request.getEmail())) {
-            throw new RuntimeException("Email is already taken!");
+        String normalizedEmail = request.getEmail().trim().toLowerCase(Locale.ROOT);
+        if(userRepository.existsByEmail(normalizedEmail)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Email đã được sử dụng.");
         }
 
         Role userRole = Role.CUSTOMER; // Default
@@ -45,10 +49,10 @@ public class AuthService {
         }
 
         var user = User.builder()
-                .fullName(request.getFullName())
-                .email(request.getEmail())
+                .fullName(request.getFullName().trim())
+                .email(normalizedEmail)
                 .passwordHash(passwordEncoder.encode(request.getPassword()))
-                .phoneNumber(request.getPhoneNumber())
+                .phoneNumber(request.getPhoneNumber().trim())
                 .role(userRole)
                 .isActive(true)
                 .build();
@@ -76,13 +80,14 @@ public class AuthService {
     }
 
     public AuthResponse authenticate(AuthRequest request) {
+        String normalizedEmail = request.getEmail().trim().toLowerCase(Locale.ROOT);
         authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(
-                        request.getEmail(),
+                        normalizedEmail,
                         request.getPassword()
                 )
         );
-        var user = userRepository.findByEmail(request.getEmail())
+        var user = userRepository.findByEmail(normalizedEmail)
                 .orElseThrow();
                 
         var userDetails = new UserDetailsImpl(user);
@@ -145,12 +150,16 @@ public class AuthService {
         if (email == null) {
             throw new RuntimeException("Email not found from social provider");
         }
+        email = email.trim().toLowerCase(Locale.ROOT);
 
         Optional<User> userOpt = userRepository.findByEmail(email);
         User user;
 
         if (userOpt.isPresent()) {
             user = userOpt.get();
+            if (!Boolean.TRUE.equals(user.getIsActive())) {
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Tài khoản đã bị khóa.");
+            }
             if ("GOOGLE".equalsIgnoreCase(request.getProvider()) && user.getGoogleId() == null) {
                 user.setGoogleId(socialId);
             } else if ("FACEBOOK".equalsIgnoreCase(request.getProvider()) && user.getFacebookId() == null) {

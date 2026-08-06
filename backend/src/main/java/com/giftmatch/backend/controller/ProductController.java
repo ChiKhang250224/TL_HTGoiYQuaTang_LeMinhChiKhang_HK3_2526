@@ -11,6 +11,7 @@ import com.giftmatch.backend.repository.CategoryRepository;
 import com.giftmatch.backend.repository.GiftLabelRepository;
 import com.giftmatch.backend.repository.ProductRepository;
 import com.giftmatch.backend.security.UserDetailsImpl;
+import com.giftmatch.backend.service.AdminStoreService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.HttpStatus;
@@ -31,6 +32,7 @@ public class ProductController {
     private final ProductRepository productRepository;
     private final CategoryRepository categoryRepository;
     private final GiftLabelRepository giftLabelRepository;
+    private final AdminStoreService adminStoreService;
 
     @GetMapping
     @Transactional(readOnly = true)
@@ -117,6 +119,7 @@ public class ProductController {
             @AuthenticationPrincipal UserDetailsImpl userDetails
     ) {
         requireStoreOrAdmin(userDetails);
+        requireApprovedStore(userDetails);
         User store = userDetails.getUser();
         GiftLabel giftLabel = getGiftLabel(request.getAiGiftName());
         
@@ -147,6 +150,7 @@ public class ProductController {
             @AuthenticationPrincipal UserDetailsImpl userDetails
     ) {
         Product product = getOwnedProductOrAdmin(id, userDetails);
+        requireApprovedStore(userDetails);
         productRepository.delete(product);
         return ResponseEntity.noContent().build();
     }
@@ -159,6 +163,7 @@ public class ProductController {
             @AuthenticationPrincipal UserDetailsImpl userDetails
     ) {
         Product product = getOwnedProductOrAdmin(id, userDetails);
+        requireApprovedStore(userDetails);
         GiftLabel giftLabel = getGiftLabel(request.getAiGiftName());
         
         product.setName(request.getName());
@@ -191,6 +196,7 @@ public class ProductController {
             @AuthenticationPrincipal UserDetailsImpl userDetails
     ) {
         Product product = getOwnedProductOrAdmin(id, userDetails);
+        requireApprovedStore(userDetails);
         String status = request.getBusinessStatus().trim().toUpperCase();
         if (!List.of("IN_STOCK", "OUT_OF_STOCK", "HIDDEN", "DISCONTINUED").contains(status)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Trang thai kinh doanh khong hop le.");
@@ -208,11 +214,20 @@ public class ProductController {
             @RequestParam(required = false) java.math.BigDecimal minPrice,
             @RequestParam(required = false) java.math.BigDecimal maxPrice
     ) {
+        String normalizedKeyword = normalizeFilter(keyword);
+        String normalizedGiftType = normalizeFilter(giftType);
+        if ((minPrice != null && minPrice.signum() < 0)
+                || (maxPrice != null && maxPrice.signum() < 0)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Khoảng giá không thể là số âm.");
+        }
+        if (minPrice != null && maxPrice != null && minPrice.compareTo(maxPrice) > 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Giá tối thiểu không thể lớn hơn giá tối đa.");
+        }
         return ResponseEntity.ok(
                 productRepository.searchProducts(
-                                keyword,
+                                normalizedKeyword,
                                 categoryId,
-                                giftType,
+                                normalizedGiftType,
                                 minPrice,
                                 maxPrice
                         )
@@ -220,6 +235,11 @@ public class ProductController {
                         .map(ProductResponse::from)
                         .toList()
         );
+    }
+
+    private String normalizeFilter(String value) {
+        if (value == null || value.isBlank()) return null;
+        return value.trim();
     }
 
     private GiftLabel getGiftLabel(String displayName) {
@@ -262,5 +282,11 @@ public class ProductController {
     private boolean isOwner(Product product, UserDetailsImpl userDetails) {
         return product.getStore() != null
                 && product.getStore().getUserId().equals(userDetails.getUser().getUserId());
+    }
+
+    private void requireApprovedStore(UserDetailsImpl userDetails) {
+        if (adminStoreService != null && userDetails.getUser().getRole() == Role.STORE) {
+            adminStoreService.requireApproved(userDetails.getUser().getUserId());
+        }
     }
 }

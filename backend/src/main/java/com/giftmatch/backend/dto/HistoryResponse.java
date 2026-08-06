@@ -47,6 +47,8 @@ public class HistoryResponse {
         private BigDecimal aiScore;
         private BigDecimal matchScore;
         private Integer rankPosition;
+        private String matchSource;
+        private String matchReason;
     }
 
     @Data

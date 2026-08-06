@@ -17,10 +17,12 @@ public class StoreProfileDto {
     @Size(max = 500) private String logoUrl;
     private String email;
     private String status;
+    private String reviewNote;
 
     public static StoreProfileDto from(StoreProfile profile) {
         return StoreProfileDto.builder().storeId(profile.getStoreId()).storeName(profile.getStoreName())
                 .description(profile.getDescription()).address(profile.getAddress()).phone(profile.getPhone())
-                .logoUrl(profile.getLogoUrl()).email(profile.getOwner().getEmail()).status(profile.getStatus()).build();
+                .logoUrl(profile.getLogoUrl()).email(profile.getOwner().getEmail()).status(profile.getStatus())
+                .reviewNote(profile.getReviewNote()).build();
     }
 }

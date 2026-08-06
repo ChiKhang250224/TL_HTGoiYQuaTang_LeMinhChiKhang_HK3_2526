@@ -7,6 +7,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
@@ -53,6 +54,15 @@ public class StoreProfile {
     @Column(nullable = false, length = 20)
     @Builder.Default
     private String status = "PENDING";
+
+    @Column(length = 1000)
+    private String reviewNote;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "reviewed_by")
+    private User reviewedBy;
+
+    private LocalDateTime reviewedAt;
 
     @CreationTimestamp
     @Column(nullable = false, updatable = false)

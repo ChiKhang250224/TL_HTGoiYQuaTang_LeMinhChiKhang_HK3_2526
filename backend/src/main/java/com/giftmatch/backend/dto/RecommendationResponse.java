@@ -29,5 +29,7 @@ public class RecommendationResponse {
         private String aiGiftName;
         private String predictedGiftName;
         private double matchScore;
+        private String matchSource;
+        private String matchReason;
     }
 }

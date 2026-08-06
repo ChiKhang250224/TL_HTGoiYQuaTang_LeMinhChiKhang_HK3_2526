@@ -4,6 +4,7 @@ import com.giftmatch.backend.dto.ProductReportDecisionRequest;
 import com.giftmatch.backend.dto.ProductReportResponse;
 import com.giftmatch.backend.security.UserDetailsImpl;
 import com.giftmatch.backend.service.ProductReportService;
+import com.giftmatch.backend.service.AuditLogService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -17,6 +18,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class AdminProductReportController {
     private final ProductReportService service;
+    private final AuditLogService auditLogService;
 
     @GetMapping
     public ResponseEntity<List<ProductReportResponse>> getReports(
@@ -32,6 +34,14 @@ public class AdminProductReportController {
             @Valid @RequestBody ProductReportDecisionRequest request,
             @AuthenticationPrincipal UserDetailsImpl details
     ) {
-        return ResponseEntity.ok(service.decide(reportId, request, details.getUser()));
+        ProductReportResponse response = service.decide(reportId, request, details.getUser());
+        auditLogService.record(
+                details.getUser(),
+                "PRODUCT_REPORT_" + request.getStatus(),
+                "PRODUCT_REPORT",
+                reportId,
+                "Xử lý báo cáo sản phẩm " + response.getProductName() + " với trạng thái " + request.getStatus()
+        );
+        return ResponseEntity.ok(response);
     }
 }

@@ -449,6 +449,12 @@ export default function Recommendations() {
                       <p className="text-body-sm text-on-surface-variant line-clamp-2 mt-2">
                         {product.description || 'Sản phẩm phù hợp với hồ sơ người nhận.'}
                       </p>
+                      {product.matchReason && (
+                        <details className="mt-3 rounded-xl bg-primary/5 p-3 text-sm text-on-surface-variant">
+                          <summary className="cursor-pointer font-bold text-primary">Vì sao được gợi ý?</summary>
+                          <p className="mt-2 break-words leading-relaxed">{product.matchReason}</p>
+                        </details>
+                      )}
                       <div className="font-headline-lg text-[22px] font-semibold text-primary-container mt-auto pt-md">
                         {formatPrice(product.price)}
                       </div>

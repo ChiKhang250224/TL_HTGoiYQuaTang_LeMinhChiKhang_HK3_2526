@@ -2,7 +2,6 @@ package com.giftmatch.backend.service;
 
 import com.giftmatch.backend.dto.AiRecommendationResponse;
 import com.giftmatch.backend.dto.HistoryResponse;
-import com.giftmatch.backend.dto.RecommendationHistoryDto;
 import com.giftmatch.backend.dto.RecommendationRequest;
 import com.giftmatch.backend.dto.RecommendationResponse;
 import com.giftmatch.backend.entity.AiModel;
@@ -46,29 +45,6 @@ public class HistoryService {
                 .stream()
                 .map(this::toResponse)
                 .toList();
-    }
-
-    @Transactional
-    public RecommendationHistory saveHistory(RecommendationHistoryDto dto) {
-        User user = userRepository.findById(dto.getUserId()).orElseThrow();
-        List<Product> products = productRepository.findAllById(dto.getRecommendedProductIds());
-        RecipientProfile profile = findOwnedProfile(dto.getProfileId(), dto.getUserId());
-        
-        RecommendationHistory history = RecommendationHistory.builder()
-                .user(user)
-                .recipientProfile(profile)
-                .recipientName(profile == null ? null : profile.getFullName())
-                .aiInsights(dto.getAiInsights())
-                .build();
-
-        int rank = 1;
-        for (Product product : products) {
-            history.addRecommendationItem(RecommendationItem.builder()
-                    .product(product)
-                    .rankPosition(rank++)
-                    .build());
-        }
-        return historyRepository.save(history);
     }
 
     @Transactional
@@ -140,6 +116,8 @@ public class HistoryService {
                             ? null
                             : BigDecimal.valueOf(prediction.getScore()))
                     .matchScore(BigDecimal.valueOf(rankedProduct.getMatchScore()))
+                    .matchSource(rankedProduct.getMatchSource())
+                    .matchReason(rankedProduct.getMatchReason())
                     .rankPosition(rank++)
                     .build());
         }
@@ -192,6 +170,8 @@ public class HistoryService {
                         .aiScore(item.getAiScore())
                         .matchScore(item.getMatchScore())
                         .rankPosition(item.getRankPosition())
+                        .matchSource(item.getMatchSource())
+                        .matchReason(item.getMatchReason())
                         .build();
                 })
                 .toList();

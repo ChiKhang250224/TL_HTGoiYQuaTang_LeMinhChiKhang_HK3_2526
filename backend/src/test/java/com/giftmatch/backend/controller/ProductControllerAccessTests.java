@@ -17,10 +17,14 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.Optional;
+import java.math.BigDecimal;
+import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.when;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verify;
+import static org.mockito.ArgumentMatchers.isNull;
 
 @ExtendWith(MockitoExtension.class)
 class ProductControllerAccessTests {
@@ -75,5 +79,31 @@ class ProductControllerAccessTests {
 
         org.assertj.core.api.Assertions.assertThat(product.getBusinessStatus()).isEqualTo("OUT_OF_STOCK");
         org.assertj.core.api.Assertions.assertThat(product.getStatus()).isEqualTo("APPROVED");
+    }
+
+    @Test
+    void searchRejectsInvalidPriceRange() {
+        assertThatThrownBy(() -> productController.searchProducts(
+                null, null, null, BigDecimal.valueOf(500_000), BigDecimal.valueOf(100_000)
+        )).isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("400 BAD_REQUEST");
+    }
+
+    @Test
+    void searchNormalizesBlankFiltersBeforeQueryingRepository() {
+        productController.searchProducts("   ", null, "", null, null);
+
+        verify(productRepository).searchProducts(isNull(), isNull(), isNull(), isNull(), isNull());
+    }
+
+    @Test
+    void featuredProductLimitIsClampedToTwelve() {
+        when(productRepository.findFeaturedProducts(any())).thenReturn(List.of());
+
+        productController.getFeaturedProducts(100);
+
+        verify(productRepository).findFeaturedProducts(
+                org.mockito.ArgumentMatchers.argThat(pageable -> pageable.getPageSize() == 12)
+        );
     }
 }

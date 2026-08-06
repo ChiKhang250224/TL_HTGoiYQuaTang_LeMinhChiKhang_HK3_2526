@@ -20,7 +20,7 @@ export default function Login() {
       localStorage.setItem('fullName', res.data.fullName);
       localStorage.setItem('role', res.data.role);
       navigate('/dashboard');
-    } catch (err) {
+    } catch {
       setError('Đăng nhập thất bại. Vui lòng kiểm tra lại email và mật khẩu.');
       setSuccess('');
     }

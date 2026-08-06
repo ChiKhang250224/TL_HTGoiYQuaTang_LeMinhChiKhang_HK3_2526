@@ -10,9 +10,15 @@ import org.springframework.web.client.RestClient;
 public class AiServiceConfig {
 
     @Bean
-    public RestClient aiRestClient(@Value("${ai.service.url}") String baseUrl) {
+    public RestClient aiRestClient(
+            @Value("${ai.service.url}") String baseUrl,
+            @Value("${ai.service.connect-timeout-ms:3000}") int connectTimeoutMs,
+            @Value("${ai.service.read-timeout-ms:15000}") int readTimeoutMs
+    ) {
         SimpleClientHttpRequestFactory requestFactory =
                 new SimpleClientHttpRequestFactory();
+        requestFactory.setConnectTimeout(connectTimeoutMs);
+        requestFactory.setReadTimeout(readTimeoutMs);
 
         return RestClient.builder()
                 .baseUrl(baseUrl)
