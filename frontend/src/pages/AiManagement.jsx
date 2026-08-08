@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import AdminShell from '../components/AdminShell';
 import api from '../utils/api';
 import { GIFT_NAME_LABELS, GIFT_TAXONOMY } from '../constants/giftTaxonomy';
 
@@ -9,9 +9,6 @@ const formatSize = (bytes) => {
 };
 
 export default function AiManagement() {
-  const navigate = useNavigate();
-  const [userName, setUserName] = useState('Admin');
-  const [userAvatar, setUserAvatar] = useState(null);
   const [models, setModels] = useState([]);
   const [activeModel, setActiveModel] = useState('');
   const [unlabeledProducts, setUnlabeledProducts] = useState([]);
@@ -44,20 +41,8 @@ export default function AiManagement() {
   };
 
   useEffect(() => {
-    // Check if admin
-    const role = localStorage.getItem('role');
-    if (role !== 'ADMIN') {
-      navigate('/login');
-    }
-    
-    const name = localStorage.getItem('fullName');
-    if (name) setUserName(name);
-    
-    const avatar = localStorage.getItem('avatar');
-    if (avatar && avatar !== 'null') setUserAvatar(avatar);
-    
     loadData();
-  }, [navigate]);
+  }, []);
 
   const runAction = async (action, successMessage) => {
     setBusy(true);
@@ -110,19 +95,19 @@ export default function AiManagement() {
 
   if (loading) {
     return (
-      <main className="min-h-screen grid place-items-center bg-background">
-        <div className="text-center">
+      <AdminShell title="Quản lý mô hình AI">
+        <div className="grid min-h-[55vh] place-items-center text-center">
           <span className="material-symbols-outlined text-5xl text-primary animate-pulse">
             psychology
           </span>
           <p className="mt-2 text-on-surface-variant">Đang tải quản lý AI...</p>
         </div>
-      </main>
+      </AdminShell>
     );
   }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-background font-body-md text-body-md w-full">
+    <AdminShell title="Quản lý mô hình AI">
       <style>{`
         ::-webkit-scrollbar { width: 6px; height: 6px; }
         ::-webkit-scrollbar-track { background: transparent; }
@@ -130,96 +115,12 @@ export default function AiManagement() {
         ::-webkit-scrollbar-thumb:hover { background: theme('colors.outline'); }
         .dashed-upload { border: 2px dashed theme('colors.outline-variant'); }
       `}</style>
-
-      {/* SideNavBar */}
-      <aside className="h-screen w-64 fixed left-0 top-0 bg-inverse-surface dark:bg-surface-container-lowest border-r border-outline-variant shadow-md flex flex-col p-md z-40 hidden md:flex transition-transform duration-300">
-        <div className="flex items-center gap-xs mb-lg px-2">
-          <div className="w-10 h-10 rounded-xl bg-primary-container flex items-center justify-center text-on-primary-container shadow-soft">
-            <span className="material-symbols-outlined" style={{fontVariationSettings: "'FILL' 1"}}>admin_panel_settings</span>
-          </div>
-          <div>
-            <h2 className="font-display-lg text-[20px] leading-tight text-primary-fixed dark:text-primary tracking-tight">GiftMatch Admin</h2>
-            <p className="font-label-sm text-label-sm text-surface-variant/80 dark:text-outline mt-0.5">System Manager</p>
-          </div>
-        </div>
-        
-        <nav className="flex-1 space-y-2">
-          <Link className="flex items-center gap-3 px-4 py-3 rounded-lg text-surface-variant hover:bg-surface-variant/10 transition-colors group" to="/admin">
-            <span className="material-symbols-outlined group-hover:text-primary-fixed transition-colors">dashboard</span>
-            <span className="font-label-md text-label-md">Dashboard</span>
-          </Link>
-          <Link className="flex items-center gap-3 px-4 py-3 rounded-lg text-surface-variant hover:bg-surface-variant/10 transition-colors group" to="/admin/users">
-            <span className="material-symbols-outlined group-hover:text-primary-fixed transition-colors">group</span>
-            <span className="font-label-md text-label-md">Quản lý người dùng</span>
-          </Link>
-          <Link className="flex items-center gap-3 px-4 py-3 rounded-lg text-surface-variant hover:bg-surface-variant/10 transition-colors group" to="/admin/products">
-            <span className="material-symbols-outlined group-hover:text-primary-fixed transition-colors">inventory</span>
-            <span className="font-label-md text-label-md">Kiểm duyệt sản phẩm</span>
-          </Link>
-          <Link className="flex items-center gap-3 px-4 py-3 rounded-lg text-surface-variant hover:bg-surface-variant/10 transition-colors group" to="/admin/labels">
-            <span className="material-symbols-outlined group-hover:text-primary-fixed transition-colors">label</span>
-            <span className="font-label-md text-label-md">Gắn nhãn AI</span>
-          </Link>
-          <Link className="flex items-center gap-3 px-4 py-3 rounded-lg bg-primary-container text-on-primary-container font-bold shadow-soft transition-transform active:scale-95 duration-150 relative overflow-hidden" to="/admin/ai">
-            <div className="absolute inset-0 bg-white/20 transform -translate-x-full group-hover:translate-x-full transition-transform duration-500"></div>
-            <span className="material-symbols-outlined" style={{fontVariationSettings: "'FILL' 1"}}>model_training</span>
-            <span className="font-label-md text-label-md">Quản lý Model AI</span>
-          </Link>
-          <Link className="flex items-center gap-3 px-4 py-3 rounded-lg text-surface-variant hover:bg-surface-variant/10 transition-colors group mt-8 border-t border-surface-variant/20 pt-4" to="/">
-            <span className="material-symbols-outlined group-hover:text-primary-fixed transition-colors">arrow_back</span>
-            <span className="font-label-md text-label-md">Về trang khách</span>
-          </Link>
-        </nav>
-
-        <div className="mt-auto pt-4 border-t border-surface-variant/20">
-          <div className="mt-4 flex items-center gap-3 px-2 cursor-pointer" onClick={() => {
-              localStorage.clear();
-              navigate('/login');
-          }}>
-            {userAvatar ? (
-               <img className="w-10 h-10 rounded-full object-cover border-2 border-primary-fixed shadow-sm" src={userAvatar} referrerPolicy="no-referrer" alt="avatar" />
-            ) : (
-               <div className="w-10 h-10 rounded-full bg-surface-container flex items-center justify-center border-2 border-primary-fixed shadow-sm">
-                 <span className="material-symbols-outlined text-primary">person</span>
-               </div>
-            )}
-            <div>
-              <p className="font-label-md text-label-md text-on-surface-variant dark:text-surface-container font-semibold truncate max-w-[120px]">{userName}</p>
-              <p className="font-label-sm text-label-sm text-surface-variant/70">Đăng xuất</p>
-            </div>
-          </div>
-        </div>
-      </aside>
-
-      {/* Main Content Area */}
-      <main className="flex-1 ml-0 md:ml-64 h-full overflow-y-auto bg-[#F9F9F9] relative flex flex-col">
-        
-        {/* TopNavBar */}
-        <header className="sticky top-0 z-30 bg-surface/80 backdrop-blur-md shadow-sm h-16 w-full px-xl flex justify-between items-center transition-all duration-300">
-          <div className="flex items-center gap-4">
-            <button className="md:hidden p-2 text-on-surface-variant hover:bg-surface-variant/20 rounded-full transition-colors">
-              <span className="material-symbols-outlined">menu</span>
-            </button>
-            <h1 className="font-title-md text-title-md text-[#A0522D] font-bold hidden sm:block">Quản lý Model AI</h1>
-          </div>
-          <div className="flex items-center gap-xs">
-            <button className="p-2 text-on-surface-variant hover:text-primary transition-colors hover:opacity-80 rounded-full">
-              <span className="material-symbols-outlined">search</span>
-            </button>
-            <button className="p-2 text-on-surface-variant hover:text-primary transition-colors hover:opacity-80 rounded-full relative">
-              <span className="material-symbols-outlined">notifications</span>
-              <span className="absolute top-2 right-2 w-2 h-2 bg-error rounded-full border border-surface"></span>
-            </button>
-          </div>
-        </header>
-
-        {/* Content */}
-        <div className="p-xl max-w-5xl mx-auto w-full">
+      <div className="mx-auto w-full max-w-5xl">
           <div className="mb-lg">
             <span className="text-[12px] font-bold text-primary uppercase tracking-wider">ADMIN AI</span>
-            <h1 className="font-display-md text-[32px] font-bold text-on-surface mt-1 text-[#8B4513]">
+            <h2 className="mt-1 text-2xl font-bold text-on-surface sm:text-3xl">
               Gắn nhãn dữ liệu & Quản lý mô hình
-            </h1>
+            </h2>
             <p className="text-on-surface-variant mt-2 text-label-md">
               Model chỉ được kích hoạt sau khi AI service nạp và kiểm tra bundle thành công.
             </p>
@@ -387,8 +288,7 @@ export default function AiManagement() {
             )}
           </div>
         </section>
-        </div>
-      </main>
-    </div>
+      </div>
+    </AdminShell>
   );
 }

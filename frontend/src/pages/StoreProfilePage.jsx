@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import StoreShell from '../components/StoreShell';
 import api from '../utils/api';
 
 export default function StoreProfilePage() {
@@ -30,12 +30,11 @@ export default function StoreProfilePage() {
     finally { setSaving(false); }
   };
 
-  if (loading) return <main className="py-20 text-center">Đang tải hồ sơ cửa hàng...</main>;
+  if (loading) return <StoreShell title="Hồ sơ cửa hàng"><div className="py-20 text-center">Đang tải hồ sơ cửa hàng...</div></StoreShell>;
   const inputClass = 'w-full rounded-xl border border-outline-variant bg-white px-4 py-3 focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary';
   return (
-    <div className="min-h-screen bg-surface-container-low overflow-x-hidden">
-      <header className="sticky top-0 z-30 border-b border-outline-variant bg-white/95"><div className="max-w-5xl mx-auto h-16 px-4 sm:px-6 flex items-center gap-3"><Link to="/store-products" className="p-2 rounded-full border border-outline-variant"><span className="material-symbols-outlined">arrow_back</span></Link><h1 className="font-bold text-xl truncate">Hồ sơ cửa hàng</h1></div></header>
-      <main className="max-w-5xl mx-auto px-4 sm:px-6 py-6 md:py-10">
+    <StoreShell title="Hồ sơ cửa hàng">
+      <div className="mx-auto max-w-5xl">
         <form onSubmit={save} className="grid grid-cols-1 lg:grid-cols-[280px_minmax(0,1fr)] gap-6">
           <aside className="rounded-3xl border border-outline-variant bg-white p-6 h-fit text-center min-w-0">
             <div className="mx-auto h-32 w-32 rounded-2xl overflow-hidden bg-surface-container flex items-center justify-center text-4xl font-bold text-primary">{form.logoUrl ? <img src={form.logoUrl} alt="Logo cửa hàng" className="h-full w-full object-cover" /> : form.storeName?.charAt(0)}</div>
@@ -53,7 +52,7 @@ export default function StoreProfilePage() {
             <div className="flex justify-end"><button disabled={saving || uploading} className="w-full sm:w-auto rounded-xl bg-primary px-6 py-3 font-bold text-white disabled:opacity-50">{saving ? 'Đang lưu...' : 'Lưu thay đổi'}</button></div>
           </section>
         </form>
-      </main>
-    </div>
+      </div>
+    </StoreShell>
   );
 }

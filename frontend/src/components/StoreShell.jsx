@@ -16,7 +16,7 @@ export default function StoreShell({ title, children }) {
       <aside className="hidden md:flex fixed inset-y-0 left-0 z-40 w-64 flex-col bg-inverse-surface p-4 text-surface-container">
         <Link to="/store-dashboard" className="flex items-center gap-3 px-2 py-3"><span className="material-symbols-outlined grid h-10 w-10 place-items-center rounded-xl bg-primary-container text-white">storefront</span><div><strong className="block text-lg text-primary-fixed">GiftMatch Store</strong><span className="text-xs text-outline">Shop Manager</span></div></Link>
         <nav className="mt-5 flex-1 space-y-1">
-          {ITEMS.map(([path, icon, label]) => <Link key={path} to={path} className={`flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-bold ${location.pathname === path || (path === '/store-dashboard' && location.pathname === '/store-analytics') ? 'bg-primary-container text-white' : 'text-surface-variant hover:bg-white/10'}`}><span className="material-symbols-outlined">{icon}</span>{label}</Link>)}
+          {ITEMS.map(([path, icon, label]) => <Link key={path} to={path} className={`flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-bold ${location.pathname === path ? 'bg-primary-container text-white' : 'text-surface-variant hover:bg-white/10'}`}><span className="material-symbols-outlined">{icon}</span>{label}</Link>)}
         </nav>
         <button onClick={logout} className="flex items-center gap-2 rounded-xl border border-white/10 px-3 py-3 text-sm font-bold text-surface-variant hover:bg-white/10"><span className="material-symbols-outlined">logout</span>Đăng xuất</button>
       </aside>

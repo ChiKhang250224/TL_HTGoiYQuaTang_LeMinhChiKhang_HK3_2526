@@ -294,13 +294,22 @@ function ProtectedRoute({ children, allowedRoles }) {
   return children;
 }
 
+function LandingRoute() {
+  const token = localStorage.getItem('token');
+  const role = localStorage.getItem('role');
+  if (token && role === 'ADMIN') {
+    return <Navigate to="/admin" replace />;
+  }
+  return <Home />;
+}
+
 function App() {
   return (
     <BrowserRouter>
       <AppLayout>
         <Suspense fallback={<RouteLoading />}>
           <Routes>
-          <Route path="/" element={<Home />} />
+          <Route path="/" element={<LandingRoute />} />
           <Route path="/home" element={<ProtectedRoute allowedRoles={['CUSTOMER']}><UserHome /></ProtectedRoute>} />
           <Route path="/login" element={<AuthPage />} />
           <Route path="/register" element={<AuthPage />} />

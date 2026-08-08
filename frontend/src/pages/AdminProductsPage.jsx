@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import AdminShell from '../components/AdminShell';
 import api from '../utils/api';
 
 const FALLBACK_IMAGE = 'https://images.unsplash.com/photo-1549465220-1a8b9238cd48?auto=format&fit=crop&w=900&q=80';
@@ -102,28 +102,21 @@ export default function AdminProductsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-surface-container-low text-on-surface overflow-x-hidden">
-      <header className="sticky top-0 z-30 border-b border-outline-variant bg-white/95 backdrop-blur">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3 min-w-0">
-            <Link to="/admin" className="w-10 h-10 shrink-0 rounded-full border border-outline-variant flex items-center justify-center hover:bg-surface-container">
-              <span className="material-symbols-outlined">arrow_back</span>
-            </Link>
-            <div className="min-w-0">
-              <h1 className="font-bold text-lg sm:text-xl truncate">Kiểm duyệt sản phẩm</h1>
-              <p className="text-xs sm:text-sm text-on-surface-variant truncate">Gán nhãn và quyết định phạm vi hiển thị</p>
-            </div>
-          </div>
-          <span className="shrink-0 rounded-full bg-primary/10 px-3 py-1.5 text-sm font-bold text-primary">
-            {products.length} chờ duyệt
-          </span>
+    <AdminShell title="Kiểm duyệt sản phẩm">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+        <div>
+          <h2 className="text-2xl sm:text-3xl font-bold">Danh sách chờ xử lý</h2>
+          <p className="mt-1 text-on-surface-variant">Gán nhãn và quyết định phạm vi hiển thị sản phẩm.</p>
         </div>
-      </header>
+        <span className="w-fit shrink-0 rounded-full bg-primary/10 px-3 py-1.5 text-sm font-bold text-primary">
+          {products.length} chờ duyệt
+        </span>
+      </div>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 md:py-10">
+      <section>
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
           <div>
-            <h2 className="text-2xl sm:text-3xl font-bold">Danh sách chờ xử lý</h2>
+            <h3 className="text-xl font-bold">Sản phẩm cần kiểm tra</h3>
             <p className="mt-1 text-on-surface-variant">Chỉ sản phẩm đã có nhãn AI hợp lệ mới có thể được phê duyệt.</p>
           </div>
           <label className="relative w-full md:w-80">
@@ -220,7 +213,7 @@ export default function AdminProductsPage() {
             ))}
           </div>
         )}
-      </main>
+      </section>
 
       {rejectingId && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
@@ -246,6 +239,6 @@ export default function AdminProductsPage() {
           </div>
         </div>
       )}
-    </div>
+    </AdminShell>
   );
 }

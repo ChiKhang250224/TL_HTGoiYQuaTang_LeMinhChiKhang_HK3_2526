@@ -46,7 +46,9 @@ export default function AdminShell({ title, children }) {
         <header className="sticky top-0 z-30 border-b border-outline-variant bg-white/95 px-4 py-3 backdrop-blur sm:px-6">
           <div className="flex items-center justify-between gap-4">
             <h1 className="min-w-0 truncate text-xl font-bold text-primary">{title}</h1>
-            <Link to="/profile" className="shrink-0 rounded-full bg-surface-container px-3 py-2 text-sm font-bold">{localStorage.getItem('fullName') || 'Admin'}</Link>
+            <div className="shrink-0 rounded-full bg-surface-container px-3 py-2 text-sm font-bold" aria-label="Tài khoản quản trị">
+              {localStorage.getItem('fullName') || 'Admin'}
+            </div>
           </div>
           <nav className="mt-3 flex gap-2 overflow-x-auto pb-1 md:hidden">
             {ITEMS.map(([path, icon, label]) => (
