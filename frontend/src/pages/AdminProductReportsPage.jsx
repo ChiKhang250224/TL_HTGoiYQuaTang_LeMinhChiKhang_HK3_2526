@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import AdminShell from '../components/AdminShell';
 import api from '../utils/api';
 
 const FALLBACK_IMAGE = 'https://images.unsplash.com/photo-1549465220-1a8b9238cd48?auto=format&fit=crop&w=600&q=80';
@@ -78,23 +78,16 @@ export default function AdminProductReportsPage() {
   };
 
   return (
-    <div className="min-h-screen overflow-x-hidden bg-surface-container-low text-on-surface">
-      <header className="sticky top-0 z-30 border-b border-outline-variant bg-white/95 backdrop-blur">
-        <div className="mx-auto flex min-h-16 max-w-7xl items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:px-8">
-          <div className="flex min-w-0 items-center gap-3">
-            <Link to="/admin" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-outline-variant hover:bg-surface-container">
-              <span className="material-symbols-outlined">arrow_back</span>
-            </Link>
-            <div className="min-w-0">
-              <h1 className="truncate text-lg font-bold sm:text-xl">Báo cáo sản phẩm</h1>
-              <p className="truncate text-xs text-on-surface-variant sm:text-sm">Tiếp nhận và lưu kết quả xử lý phản ánh</p>
-            </div>
-          </div>
-          <span className="shrink-0 rounded-full bg-error-container px-3 py-1.5 text-sm font-bold text-error">{reports.length} báo cáo</span>
+    <AdminShell title="Báo cáo sản phẩm">
+      <div className="mb-6 flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
+        <div>
+          <h2 className="text-2xl font-bold">Phản ánh về sản phẩm</h2>
+          <p className="mt-1 text-on-surface-variant">Tiếp nhận và lưu kết quả xử lý phản ánh từ người dùng.</p>
         </div>
-      </header>
+        <span className="w-fit shrink-0 rounded-full bg-error-container px-3 py-1.5 text-sm font-bold text-error">{reports.length} báo cáo</span>
+      </div>
 
-      <main className="mx-auto w-full max-w-7xl px-4 py-6 sm:px-6 md:py-10 lg:px-8">
+      <div>
         <section className="mb-6 grid grid-cols-1 gap-3 rounded-2xl border border-outline-variant bg-white p-4 sm:grid-cols-2">
           <label className="min-w-0 text-sm font-bold">
             Trạng thái
@@ -135,7 +128,7 @@ export default function AdminProductReportsPage() {
                     <div className="flex flex-wrap items-start justify-between gap-2">
                       <div className="min-w-0">
                         <p className="truncate text-sm font-bold text-primary">{report.storeName}</p>
-                        <Link to={`/products/${report.productId}`} className="mt-1 block break-words text-lg font-bold hover:text-primary">{report.productName}</Link>
+                        <p className="mt-1 break-words text-lg font-bold">{report.productName}</p>
                       </div>
                       <span className={`shrink-0 rounded-full border px-2.5 py-1 text-xs font-bold ${STATUS_STYLES[report.status] || STATUS_STYLES.PENDING}`}>
                         {STATUS_LABELS[report.status] || report.status}
@@ -167,7 +160,7 @@ export default function AdminProductReportsPage() {
             ))}
           </div>
         )}
-      </main>
-    </div>
+      </div>
+    </AdminShell>
   );
 }
