@@ -17,6 +17,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.http.HttpStatus;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.bind.annotation.*;
@@ -46,11 +47,12 @@ public class ProductController {
     }
 
     @GetMapping("/store/me")
+    @PreAuthorize("hasRole('STORE')")
     @Transactional(readOnly = true)
     public ResponseEntity<List<ProductResponse>> getCurrentStoreProducts(
             @AuthenticationPrincipal UserDetailsImpl userDetails
     ) {
-        requireStoreOrAdmin(userDetails);
+        requireStore(userDetails);
         return ResponseEntity.ok(
                 productRepository.findByStore_UserId(userDetails.getUser().getUserId())
                         .stream()
@@ -113,12 +115,13 @@ public class ProductController {
     }
 
     @PostMapping
+    @PreAuthorize("hasRole('STORE')")
     @Transactional
     public ResponseEntity<ProductResponse> createProduct(
-            @RequestBody ProductRequest request,
+            @Valid @RequestBody ProductRequest request,
             @AuthenticationPrincipal UserDetailsImpl userDetails
     ) {
-        requireStoreOrAdmin(userDetails);
+        requireStore(userDetails);
         requireApprovedStore(userDetails);
         User store = userDetails.getUser();
         GiftLabel giftLabel = getGiftLabel(request.getAiGiftName());
@@ -145,24 +148,26 @@ public class ProductController {
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('STORE')")
     public ResponseEntity<Void> deleteProduct(
             @PathVariable Long id,
             @AuthenticationPrincipal UserDetailsImpl userDetails
     ) {
-        Product product = getOwnedProductOrAdmin(id, userDetails);
+        Product product = getOwnedProduct(id, userDetails);
         requireApprovedStore(userDetails);
         productRepository.delete(product);
         return ResponseEntity.noContent().build();
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasRole('STORE')")
     @Transactional
     public ResponseEntity<ProductResponse> updateProduct(
             @PathVariable Long id,
-            @RequestBody ProductRequest request,
+            @Valid @RequestBody ProductRequest request,
             @AuthenticationPrincipal UserDetailsImpl userDetails
     ) {
-        Product product = getOwnedProductOrAdmin(id, userDetails);
+        Product product = getOwnedProduct(id, userDetails);
         requireApprovedStore(userDetails);
         GiftLabel giftLabel = getGiftLabel(request.getAiGiftName());
         
@@ -178,10 +183,8 @@ public class ProductController {
             categoryRepository.findById(request.getCategoryId()).ifPresent(product::setCategory);
         }
 
-        if (!isAdmin(userDetails)) {
-            product.setStatus("PENDING");
-            product.setRejectionReason(null);
-        }
+        product.setStatus("PENDING");
+        product.setRejectionReason(null);
 
         return ResponseEntity.ok(
                 ProductResponse.from(productRepository.save(product))
@@ -189,13 +192,14 @@ public class ProductController {
     }
 
     @PatchMapping("/{id}/business-status")
+    @PreAuthorize("hasRole('STORE')")
     @Transactional
     public ResponseEntity<ProductResponse> updateBusinessStatus(
             @PathVariable Long id,
             @Valid @RequestBody ProductBusinessStatusRequest request,
             @AuthenticationPrincipal UserDetailsImpl userDetails
     ) {
-        Product product = getOwnedProductOrAdmin(id, userDetails);
+        Product product = getOwnedProduct(id, userDetails);
         requireApprovedStore(userDetails);
         String status = request.getBusinessStatus().trim().toUpperCase();
         if (!List.of("IN_STOCK", "OUT_OF_STOCK", "HIDDEN", "DISCONTINUED").contains(status)) {
@@ -249,14 +253,14 @@ public class ProductController {
                 ));
     }
 
-    private Product getOwnedProductOrAdmin(Long productId, UserDetailsImpl userDetails) {
-        requireStoreOrAdmin(userDetails);
+    private Product getOwnedProduct(Long productId, UserDetailsImpl userDetails) {
+        requireStore(userDetails);
         Product product = productRepository.findById(productId)
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND,
                         "Khong tim thay san pham."
                 ));
-        if (!isAdmin(userDetails) && !isOwner(product, userDetails)) {
+        if (!isOwner(product, userDetails)) {
             throw new ResponseStatusException(
                     HttpStatus.FORBIDDEN,
                     "Khong co quyen thay doi san pham cua cua hang khac."
@@ -265,12 +269,12 @@ public class ProductController {
         return product;
     }
 
-    private void requireStoreOrAdmin(UserDetailsImpl userDetails) {
+    private void requireStore(UserDetailsImpl userDetails) {
         Role role = userDetails.getUser().getRole();
-        if (role != Role.STORE && role != Role.ADMIN) {
+        if (role != Role.STORE) {
             throw new ResponseStatusException(
                     HttpStatus.FORBIDDEN,
-                    "Chuc nang chi danh cho Store hoac Admin."
+                    "Chức năng chỉ dành cho Store."
             );
         }
     }
@@ -285,7 +289,7 @@ public class ProductController {
     }
 
     private void requireApprovedStore(UserDetailsImpl userDetails) {
-        if (adminStoreService != null && userDetails.getUser().getRole() == Role.STORE) {
+        if (adminStoreService != null) {
             adminStoreService.requireApproved(userDetails.getUser().getUserId());
         }
     }

@@ -3,9 +3,49 @@ import axios from 'axios';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import CustomSelect from '../components/CustomSelect';
 import { useGoogleLogin } from '@react-oauth/google';
-import _ReactFacebookLogin from 'react-facebook-login/dist/facebook-login-render-props';
-const ReactFacebookLogin = _ReactFacebookLogin.default || _ReactFacebookLogin;
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080';
+const FACEBOOK_GRAPH_VERSION = import.meta.env.VITE_FACEBOOK_GRAPH_VERSION || 'v23.0';
+let facebookSdkPromise;
+
+function loadFacebookSdk(appId) {
+  if (window.FB) return Promise.resolve(window.FB);
+  if (facebookSdkPromise) return facebookSdkPromise;
+
+  facebookSdkPromise = new Promise((resolve, reject) => {
+    const timeoutId = window.setTimeout(() => {
+      facebookSdkPromise = undefined;
+      reject(new Error('Facebook SDK phản hồi quá thời gian cho phép.'));
+    }, 10000);
+
+    window.fbAsyncInit = () => {
+      window.clearTimeout(timeoutId);
+      window.FB.init({
+        appId,
+        cookie: true,
+        xfbml: false,
+        version: FACEBOOK_GRAPH_VERSION,
+      });
+      resolve(window.FB);
+    };
+
+    if (!document.getElementById('facebook-jssdk')) {
+      const script = document.createElement('script');
+      script.id = 'facebook-jssdk';
+      script.async = true;
+      script.defer = true;
+      script.crossOrigin = 'anonymous';
+      script.src = 'https://connect.facebook.net/vi_VN/sdk.js';
+      script.onerror = () => {
+        window.clearTimeout(timeoutId);
+        facebookSdkPromise = undefined;
+        reject(new Error('Không thể tải Facebook SDK.'));
+      };
+      document.head.appendChild(script);
+    }
+  });
+
+  return facebookSdkPromise;
+}
 
 export default function AuthPage() {
   const navigate = useNavigate();
@@ -34,6 +74,7 @@ export default function AuthPage() {
   
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [facebookLoading, setFacebookLoading] = useState(false);
 
   const handleSocialLogin = async (token, provider) => {
     try {
@@ -61,6 +102,31 @@ export default function AuthPage() {
   const loginGoogle = useGoogleLogin({
     onSuccess: (tokenResponse) => handleSocialLogin(tokenResponse.access_token, 'GOOGLE'),
   });
+
+  const loginFacebook = async () => {
+    const appId = import.meta.env.VITE_FACEBOOK_APP_ID;
+    if (!appId) {
+      setError('Đăng nhập Facebook chưa được cấu hình VITE_FACEBOOK_APP_ID.');
+      return;
+    }
+
+    setFacebookLoading(true);
+    setError('');
+    try {
+      const facebook = await loadFacebookSdk(appId);
+      facebook.login((response) => {
+        setFacebookLoading(false);
+        if (response.authResponse?.accessToken) {
+          handleSocialLogin(response.authResponse.accessToken, 'FACEBOOK');
+        } else {
+          setError('Không thể xác thực với Facebook hoặc người dùng đã hủy thao tác.');
+        }
+      }, { scope: 'public_profile,email' });
+    } catch (sdkError) {
+      setFacebookLoading(false);
+      setError(sdkError.message || 'Không thể khởi tạo đăng nhập Facebook.');
+    }
+  };
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -185,22 +251,10 @@ export default function AuthPage() {
               <img src="https://www.svgrepo.com/show/475656/google-color.svg" alt="Google" className="w-5 h-5" />
               <span className="font-label-md text-sm text-on-surface font-semibold">Google</span>
             </button>
-            <ReactFacebookLogin
-              appId={import.meta.env.VITE_FACEBOOK_APP_ID || 'dummy'}
-              callback={(response) => {
-                if (response.accessToken) {
-                  handleSocialLogin(response.accessToken, 'FACEBOOK');
-                } else {
-                  setError("Không lấy được Access Token từ Facebook (có thể do sai App ID)");
-                }
-              }}
-              render={renderProps => (
-                <button type="button" onClick={renderProps.onClick} className="flex items-center justify-center gap-2 py-2.5 px-4 border border-outline-variant rounded-xl hover:bg-surface-container transition-colors shadow-sm">
-                  <img src="https://www.svgrepo.com/show/475647/facebook-color.svg" alt="Facebook" className="w-5 h-5" />
-                  <span className="font-label-md text-sm text-on-surface font-semibold">Facebook</span>
-                </button>
-              )}
-            />
+            <button type="button" onClick={loginFacebook} disabled={facebookLoading} className="flex items-center justify-center gap-2 py-2.5 px-4 border border-outline-variant rounded-xl hover:bg-surface-container transition-colors shadow-sm disabled:cursor-wait disabled:opacity-60">
+              <img src="https://www.svgrepo.com/show/475647/facebook-color.svg" alt="Facebook" className="w-5 h-5" />
+              <span className="font-label-md text-sm text-on-surface font-semibold">{facebookLoading ? 'Đang tải...' : 'Facebook'}</span>
+            </button>
           </div>
 
           <div className="flex items-center gap-4 mb-6">

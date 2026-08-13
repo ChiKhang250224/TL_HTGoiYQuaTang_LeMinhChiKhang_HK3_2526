@@ -54,9 +54,11 @@ class SecurityAuthorizationTests {
     }
 
     @Test
-    void onlyStoreOrAdminCanAccessStoreAnalyticsApi() throws Exception {
+    void onlyStoreCanAccessStoreAnalyticsApi() throws Exception {
         mockMvc.perform(get("/api/store/analytics").with(user(principal(3L, Role.STORE))))
                 .andExpect(status().isOk());
+        mockMvc.perform(get("/api/store/analytics").with(user(principal(1L, Role.ADMIN))))
+                .andExpect(status().isForbidden());
         mockMvc.perform(get("/api/store/analytics").with(user(principal(2L, Role.CUSTOMER))))
                 .andExpect(status().isForbidden());
     }

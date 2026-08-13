@@ -297,8 +297,8 @@ function ProtectedRoute({ children, allowedRoles }) {
 function LandingRoute() {
   const token = localStorage.getItem('token');
   const role = localStorage.getItem('role');
-  if (token && role === 'ADMIN') {
-    return <Navigate to="/admin" replace />;
+  if (token) {
+    return <Navigate to={defaultRouteForRole(role)} replace />;
   }
   return <Home />;
 }
@@ -321,13 +321,13 @@ function App() {
           <Route path="/edit-profile/:id" element={<ProtectedRoute allowedRoles={['CUSTOMER']}><AddRecipientProfile /></ProtectedRoute>} />
           <Route path="/survey" element={<ProtectedRoute allowedRoles={['CUSTOMER']}><SurveyPage /></ProtectedRoute>} />
           <Route path="/history" element={<ProtectedRoute allowedRoles={['CUSTOMER']}><History /></ProtectedRoute>} />
-          <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
-          <Route path="/products/:productId" element={<ProtectedRoute><ProductDetail /></ProtectedRoute>} />
+          <Route path="/profile" element={<ProtectedRoute allowedRoles={['CUSTOMER', 'STORE']}><ProfilePage /></ProtectedRoute>} />
+          <Route path="/products/:productId" element={<ProtectedRoute allowedRoles={['CUSTOMER']}><ProductDetail /></ProtectedRoute>} />
           <Route path="/compare" element={<ProtectedRoute allowedRoles={['CUSTOMER']}><ProductCompare /></ProtectedRoute>} />
-          <Route path="/store-profile" element={<ProtectedRoute allowedRoles={['STORE', 'ADMIN']}><StoreProfilePage /></ProtectedRoute>} />
-          <Route path="/store-products" element={<ProtectedRoute allowedRoles={['STORE', 'ADMIN']}><StoreProductsPage /></ProtectedRoute>} />
-          <Route path="/store-dashboard" element={<ProtectedRoute allowedRoles={['STORE', 'ADMIN']}><StoreAnalyticsPage /></ProtectedRoute>} />
-          <Route path="/store-analytics" element={<ProtectedRoute allowedRoles={['STORE', 'ADMIN']}><StoreAnalyticsPage /></ProtectedRoute>} />
+          <Route path="/store-profile" element={<ProtectedRoute allowedRoles={['STORE']}><StoreProfilePage /></ProtectedRoute>} />
+          <Route path="/store-products" element={<ProtectedRoute allowedRoles={['STORE']}><StoreProductsPage /></ProtectedRoute>} />
+          <Route path="/store-dashboard" element={<ProtectedRoute allowedRoles={['STORE']}><Navigate to="/store-analytics" replace /></ProtectedRoute>} />
+          <Route path="/store-analytics" element={<ProtectedRoute allowedRoles={['STORE']}><StoreAnalyticsPage /></ProtectedRoute>} />
           <Route path="/admin" element={<ProtectedRoute allowedRoles={['ADMIN']}><AdminPage /></ProtectedRoute>} />
           <Route path="/admin/users" element={<ProtectedRoute allowedRoles={['ADMIN']}><AdminUsersPage /></ProtectedRoute>} />
           <Route path="/admin/stores" element={<ProtectedRoute allowedRoles={['ADMIN']}><AdminStoresPage /></ProtectedRoute>} />

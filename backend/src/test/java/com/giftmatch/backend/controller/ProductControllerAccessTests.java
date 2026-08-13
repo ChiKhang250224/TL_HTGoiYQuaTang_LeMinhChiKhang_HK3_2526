@@ -52,6 +52,17 @@ class ProductControllerAccessTests {
     }
 
     @Test
+    void adminCannotCreateStoreProduct() {
+        User admin = User.builder().userId(1L).role(Role.ADMIN).build();
+
+        assertThatThrownBy(() -> productController.createProduct(
+                new ProductRequest(),
+                new UserDetailsImpl(admin)
+        )).isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("403 FORBIDDEN");
+    }
+
+    @Test
     void storeCannotUpdateAnotherStoresProduct() {
         User currentStore = User.builder().userId(1L).role(Role.STORE).build();
         User owner = User.builder().userId(2L).role(Role.STORE).build();

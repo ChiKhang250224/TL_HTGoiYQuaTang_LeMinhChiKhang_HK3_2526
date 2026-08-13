@@ -1,7 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import StoreShell from '../components/StoreShell';
 import api from '../utils/api';
-import { GIFT_NAME_LABELS, GIFT_TAXONOMY } from '../constants/giftTaxonomy';
+import { GIFT_NAME_LABELS } from '../constants/giftTaxonomy';
 
 const BUSINESS_STATUS_LABELS = {
   IN_STOCK: 'Còn hàng',
@@ -12,9 +12,11 @@ const BUSINESS_STATUS_LABELS = {
 
 export default function StoreProductsPage() {
   const [products, setProducts] = useState([]);
+  const [taxonomy, setTaxonomy] = useState([]);
   const [loading, setLoading] = useState(true);
   const [storeProfile, setStoreProfile] = useState(null);
   const [actionError, setActionError] = useState('');
+  const [actionMessage, setActionMessage] = useState('');
   
   // Modal State
   const [showModal, setShowModal] = useState(false);
@@ -30,8 +32,17 @@ export default function StoreProductsPage() {
   });
   const [imageFile, setImageFile] = useState(null);
   const [uploading, setUploading] = useState(false);
+  const previewUrl = useMemo(
+    () => imageFile ? URL.createObjectURL(imageFile) : formData.img,
+    [imageFile, formData.img]
+  );
+
+  useEffect(() => () => {
+    if (previewUrl?.startsWith('blob:')) URL.revokeObjectURL(previewUrl);
+  }, [previewUrl]);
 
   const fetchProducts = async () => {
+    setLoading(true);
     try {
       const res = await api.get('/products/store/me');
       let recommendationAppearances = new Map();
@@ -50,7 +61,7 @@ export default function StoreProductsPage() {
       const mapped = res.data.map(p => ({
         id: p.productId, // Adjusting ID field
         name: p.name,
-        price: p.price ? p.price + 'đ' : '0đ',
+        price: p.price ?? 0,
         category: p.category ? p.category.name : 'Chưa phân loại',
         categoryId: p.category ? p.category.categoryId : null,
         description: p.description || '',
@@ -59,12 +70,14 @@ export default function StoreProductsPage() {
         businessStatus: p.businessStatus || 'IN_STOCK',
         status: p.status === 'PENDING' ? 'Chờ duyệt' : (p.status === 'APPROVED' ? 'Đã duyệt' : 'Bị từ chối'),
         statusBg: p.status === 'PENDING' ? 'bg-[#FEF3C7] text-[#D97706] border-[#FCD34D]' : (p.status === 'APPROVED' ? 'bg-tertiary-container/10 text-tertiary-container border-tertiary-container/20' : 'bg-error-container text-error border-error/20'),
+        rejectionReason: p.rejectionReason || '',
         aiCount: recommendationAppearances.get(Number(p.productId)) || 0,
         img: p.imageUrl || 'https://images.unsplash.com/photo-1549465220-1a8b9238cd48?q=80&w=200&auto=format&fit=crop'
       }));
       setProducts(mapped);
+      setActionError('');
     } catch (error) {
-      console.error("Error fetching products", error);
+      setActionError(error.response?.data?.message || 'Không thể tải danh sách sản phẩm của cửa hàng.');
     } finally {
       setLoading(false);
     }
@@ -72,18 +85,23 @@ export default function StoreProductsPage() {
 
   useEffect(() => {
     fetchProducts();
-    api.get('/store/profile/me')
-      .then(response => setStoreProfile(response.data))
-      .catch(error => setActionError(error.response?.data?.message || 'Không thể tải trạng thái cửa hàng.'));
+    Promise.all([api.get('/store/profile/me'), api.get('/store/taxonomy')])
+      .then(([profileResponse, taxonomyResponse]) => {
+        setStoreProfile(profileResponse.data);
+        setTaxonomy(Object.entries(taxonomyResponse.data || {}).map(([name, type]) => ({ name, type })));
+      })
+      .catch(error => setActionError(error.response?.data?.message || 'Không thể tải hồ sơ hoặc taxonomy của cửa hàng.'));
   }, []);
 
   const handleDelete = async (id) => {
     if (window.confirm('Bạn có chắc chắn muốn xóa sản phẩm này?')) {
       try {
+        setActionError('');
+        setActionMessage('');
         await api.delete(`/products/${id}`);
-        setProducts(products.filter(p => p.id !== id));
+        setProducts(current => current.filter(p => p.id !== id));
+        setActionMessage('Đã xóa sản phẩm.');
       } catch (error) {
-        console.error("Lỗi khi xóa", error);
         setActionError(error.response?.data?.message || 'Không thể xóa sản phẩm.');
       }
     }
@@ -91,13 +109,14 @@ export default function StoreProductsPage() {
 
   const handleBusinessStatus = async (id, businessStatus) => {
     try {
+      setActionError('');
+      setActionMessage('');
       const response = await api.patch(`/products/${id}/business-status`, { businessStatus });
       setProducts(current => current.map(product => (
         product.id === id ? { ...product, businessStatus: response.data.businessStatus } : product
       )));
+      setActionMessage('Đã cập nhật trạng thái kinh doanh.');
     } catch (error) {
-      console.error('Không thể cập nhật trạng thái kinh doanh', error);
-      alert(error.response?.data?.message || 'Không thể cập nhật trạng thái kinh doanh.');
       setActionError(error.response?.data?.message || 'Không thể cập nhật trạng thái kinh doanh.');
     }
   };
@@ -114,30 +133,39 @@ export default function StoreProductsPage() {
       });
       return res.data.url;
     } catch (error) {
-      console.error("Upload error", error);
-      alert("Lỗi upload ảnh.");
+      setActionError(error.response?.data?.message || 'Không thể tải ảnh sản phẩm.');
       return null;
     }
   };
 
   const handleSaveProduct = async (e) => {
     e.preventDefault();
+    setActionError('');
+    setActionMessage('');
+    const normalizedPrice = Number(String(formData.price).replace(/[^0-9]/g, ''));
+    if (!formData.name.trim() || !formData.aiGiftName || !Number.isFinite(normalizedPrice) || normalizedPrice <= 0) {
+      setActionError('Vui lòng nhập tên, giá hợp lệ và nhãn quà AI.');
+      return;
+    }
     setUploading(true);
     let imageUrl = formData.img;
     
     if (imageFile) {
       const uploadedUrl = await uploadToCloudinary(imageFile);
-      if (uploadedUrl) imageUrl = uploadedUrl;
+      if (!uploadedUrl) {
+        setUploading(false);
+        return;
+      }
+      imageUrl = uploadedUrl;
     }
     
     const payload = {
-      name: formData.name,
-      price: formData.price ? formData.price.replace(/[^0-9]/g, '') : 0,
-      description: formData.description,
+      name: formData.name.trim(),
+      price: normalizedPrice,
+      description: formData.description.trim(),
       imageUrl: imageUrl,
       giftType: formData.giftType,
       aiGiftName: formData.aiGiftName
-      // Note: Category logic is simplified for demo
     };
 
     try {
@@ -146,10 +174,10 @@ export default function StoreProductsPage() {
       } else {
         await api.post('/products', payload);
       }
-      fetchProducts();
+      await fetchProducts();
       setShowModal(false);
+      setActionMessage(editId ? 'Đã cập nhật sản phẩm và chuyển về trạng thái chờ duyệt.' : 'Đã thêm sản phẩm mới.');
     } catch (error) {
-      console.error("Lỗi khi lưu sản phẩm", error);
       setActionError(error.response?.data?.message || 'Không thể lưu sản phẩm.');
     } finally {
       setUploading(false);
@@ -157,6 +185,8 @@ export default function StoreProductsPage() {
   };
 
   const openEditModal = (product) => {
+    setActionError('');
+    setActionMessage('');
     if (storeProfile?.status !== 'APPROVED') {
       setActionError('Cửa hàng cần được Admin phê duyệt trước khi thay đổi sản phẩm.');
       return;
@@ -176,6 +206,8 @@ export default function StoreProductsPage() {
   };
 
   const openAddModal = () => {
+    setActionError('');
+    setActionMessage('');
     if (storeProfile?.status !== 'APPROVED') {
       setActionError('Cửa hàng cần được Admin phê duyệt trước khi thêm sản phẩm.');
       return;
@@ -189,6 +221,28 @@ export default function StoreProductsPage() {
     setShowModal(true);
   };
 
+  const handleImageSelection = event => {
+    const file = event.target.files?.[0] || null;
+    if (!file) {
+      setImageFile(null);
+      return;
+    }
+    if (!file.type.startsWith('image/')) {
+      setActionError('Tệp được chọn phải là hình ảnh.');
+      event.target.value = '';
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setActionError('Ảnh không được vượt quá 5 MB.');
+      event.target.value = '';
+      return;
+    }
+    setActionError('');
+    setImageFile(file);
+  };
+
+  const formatPrice = price => `${Number(price || 0).toLocaleString('vi-VN')} đ`;
+
   return (
     <StoreShell title="Quản lý sản phẩm cửa hàng">
       <div className="animate-fade-in-up">
@@ -200,11 +254,13 @@ export default function StoreProductsPage() {
             </div>
           )}
           {actionError && <div className="mb-5 rounded-xl bg-error-container px-4 py-3 text-error">{actionError}</div>}
+          {actionMessage && <div className="mb-5 rounded-xl bg-green-50 px-4 py-3 text-green-800">{actionMessage}</div>}
+          {!loading && taxonomy.length === 0 && <div className="mb-5 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-amber-900">Chưa có nhãn quà đang hoạt động. Admin cần cấu hình Taxonomy trước khi Store thêm sản phẩm.</div>}
           {loading && <div className="mb-5 rounded-xl bg-surface-container px-4 py-3 text-on-surface-variant">Đang tải sản phẩm của cửa hàng...</div>}
           {/* Header & Action */}
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-lg">
             <h1 className="font-headline-lg text-headline-lg text-on-background tracking-tight">Quản lý sản phẩm</h1>
-            <button disabled={storeProfile?.status !== 'APPROVED'} onClick={openAddModal} className="bg-primary-container text-on-primary px-6 py-3 rounded-[12px] font-label-md flex items-center gap-2 shadow-sm hover:shadow-md transition-shadow active:scale-95 disabled:cursor-not-allowed disabled:opacity-50">
+            <button disabled={storeProfile?.status !== 'APPROVED' || taxonomy.length === 0} onClick={openAddModal} className="bg-primary-container text-on-primary px-6 py-3 rounded-[12px] font-label-md flex items-center gap-2 shadow-sm hover:shadow-md transition-shadow active:scale-95 disabled:cursor-not-allowed disabled:opacity-50">
               <span className="material-symbols-outlined">add</span>
               Thêm sản phẩm
             </button>
@@ -248,20 +304,21 @@ export default function StoreProductsPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-outline-variant">
-                  {products.map(product => (
+                  {!loading && products.map(product => (
                     <tr key={product.id} className="hover:bg-surface-container-low/50 transition-colors group">
                       <td className="px-6 py-4">
                         <div className="w-16 h-16 rounded-lg bg-surface-variant overflow-hidden shadow-sm">
-                          <img className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-300" src={product.img} />
+                          <img className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-300" src={product.img} alt={product.name} />
                         </div>
                       </td>
                       <td className="px-6 py-4 font-title-md text-on-background font-semibold">{product.name}</td>
-                      <td className="px-6 py-4 font-medium text-on-surface-variant">{product.price}</td>
+                      <td className="px-6 py-4 font-medium text-on-surface-variant whitespace-nowrap">{formatPrice(product.price)}</td>
                       <td className="px-6 py-4">
-                        <span className="bg-secondary-container/20 text-secondary-container px-3 py-1 rounded-full font-label-sm font-medium">{product.category}</span>
+                        <span className="bg-secondary-container/20 text-secondary-container px-3 py-1 rounded-full font-label-sm font-medium">{product.giftType || product.category}</span>
                       </td>
                       <td className="px-6 py-4">
                         <span className={`px-3 py-1 rounded-full font-label-sm border font-medium ${product.statusBg}`}>{product.status}</span>
+                        {product.rejectionReason && <p className="mt-2 max-w-[220px] text-xs text-error">{product.rejectionReason}</p>}
                       </td>
                       <td className="px-6 py-4">
                         <select
@@ -294,13 +351,14 @@ export default function StoreProductsPage() {
                 </tbody>
               </table>
             </div>
+            {!loading && products.length === 0 && <p className="p-10 text-center text-on-surface-variant">Cửa hàng chưa có sản phẩm.</p>}
           </div>
       </div>
 
       {/* Modal Thêm/Sửa Sản Phẩm */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-fade-in">
-          <div className="bg-surface-container-lowest rounded-xl shadow-lg w-full max-w-lg overflow-hidden animate-slide-in">
+          <div className="max-h-[calc(100vh-2rem)] w-full max-w-lg overflow-y-auto rounded-xl bg-surface-container-lowest shadow-lg animate-slide-in">
             <div className="px-6 py-4 border-b border-outline-variant flex justify-between items-center bg-surface-container-low">
               <h3 className="font-title-lg text-title-lg text-on-surface">{editId ? 'Sửa sản phẩm' : 'Thêm sản phẩm mới'}</h3>
               <button onClick={() => setShowModal(false)} className="text-on-surface-variant hover:text-error transition-colors">
@@ -314,10 +372,10 @@ export default function StoreProductsPage() {
                 <input required type="text" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full px-4 py-2 border border-outline-variant rounded-lg focus:outline-none focus:border-primary-fixed focus:ring-1 focus:ring-primary-fixed transition-shadow" placeholder="Nhập tên sản phẩm..." />
               </div>
               
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-4 sm:grid-cols-2">
                 <div>
                   <label className="block text-label-md font-medium text-on-surface mb-1">Giá (VNĐ) *</label>
-                  <input required type="text" value={formData.price} onChange={e => setFormData({...formData, price: e.target.value})} className="w-full px-4 py-2 border border-outline-variant rounded-lg focus:outline-none focus:border-primary-fixed focus:ring-1 focus:ring-primary-fixed transition-shadow" placeholder="Ví dụ: 500000" />
+                  <input required min="1" inputMode="numeric" type="number" value={formData.price} onChange={e => setFormData({...formData, price: e.target.value})} className="w-full px-4 py-2 border border-outline-variant rounded-lg focus:outline-none focus:border-primary-fixed focus:ring-1 focus:ring-primary-fixed transition-shadow" placeholder="Ví dụ: 500000" />
                 </div>
                 <div>
                   <label className="block text-label-md font-medium text-on-surface mb-1">Nhãn quà AI *</label>
@@ -325,7 +383,7 @@ export default function StoreProductsPage() {
                     required
                     value={formData.aiGiftName}
                     onChange={e => {
-                      const selected = GIFT_TAXONOMY.find(item => item.name === e.target.value);
+                       const selected = taxonomy.find(item => item.name === e.target.value);
                       setFormData({
                         ...formData,
                         aiGiftName: selected?.name || '',
@@ -335,7 +393,7 @@ export default function StoreProductsPage() {
                     className="w-full px-4 py-2 border border-outline-variant rounded-lg focus:outline-none focus:border-primary-fixed bg-surface text-on-surface"
                   >
                     <option value="">Chọn nhãn gần nhất</option>
-                    {GIFT_TAXONOMY.map(item => (
+                     {taxonomy.map(item => (
                       <option key={item.name} value={item.name}>
                         {GIFT_NAME_LABELS[item.name] || item.name}
                       </option>
@@ -350,11 +408,17 @@ export default function StoreProductsPage() {
               </div>
 
               <div>
+                <label className="block text-label-md font-medium text-on-surface mb-1">Mô tả sản phẩm</label>
+                <textarea rows={4} maxLength={5000} value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} className="w-full resize-y rounded-lg border border-outline-variant px-4 py-2 focus:border-primary-fixed focus:outline-none focus:ring-1 focus:ring-primary-fixed" placeholder="Mô tả đặc điểm và mục đích sử dụng của sản phẩm" />
+              </div>
+
+              <div>
                 <label className="block text-label-md font-medium text-on-surface mb-1">Hình ảnh (Cloudinary)</label>
-                <input type="file" accept="image/*" onChange={e => setImageFile(e.target.files[0])} className="w-full px-4 py-2 border border-outline-variant rounded-lg file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary-container file:text-on-primary-container hover:file:bg-primary/20 transition-colors" />
-                {(imageFile || formData.img) && (
+                <input type="file" accept="image/*" onChange={handleImageSelection} className="w-full px-4 py-2 border border-outline-variant rounded-lg file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary-container file:text-on-primary-container hover:file:bg-primary/20 transition-colors" />
+                <p className="mt-1 text-xs text-on-surface-variant">Định dạng ảnh, dung lượng tối đa 5 MB.</p>
+                {previewUrl && (
                   <div className="mt-2 w-24 h-24 rounded-lg border border-outline-variant overflow-hidden">
-                    <img src={imageFile ? URL.createObjectURL(imageFile) : formData.img} alt="Preview" className="w-full h-full object-cover" />
+                    <img src={previewUrl} alt="Xem trước sản phẩm" className="w-full h-full object-cover" />
                   </div>
                 )}
               </div>
